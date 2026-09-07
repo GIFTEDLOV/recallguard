@@ -23,6 +23,7 @@ export default async function main(client: GenLayerClient<any>) {
     code: contractCode,
     args: [domains],
   });
+  console.log(`RecallGuard deployment submitted: ${deployTransaction}`);
 
   const receipt = await client.waitForTransactionReceipt({
     hash: deployTransaction as TransactionHash,
@@ -32,10 +33,10 @@ export default async function main(client: GenLayerClient<any>) {
   });
 
   const executionResult = receipt.consensus_data?.leader_receipt?.[0]?.execution_result;
-  if (executionResult && executionResult !== "SUCCESS") {
+  if (executionResult !== "SUCCESS") {
     throw new Error(`Deployment execution failed: ${JSON.stringify(receipt)}`);
   }
-  if (receipt.statusName && receipt.statusName !== "FINALIZED") {
+  if (receipt.statusName !== "FINALIZED") {
     throw new Error(`Deployment did not finalize: ${JSON.stringify(receipt)}`);
   }
 

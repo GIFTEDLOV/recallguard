@@ -63,7 +63,7 @@ npm run build
 
 ## Deployment
 
-`deploy/deployScript.ts` is deployment tooling only. It reads the contract source, passes the deterministic recall-domain allowlist to the constructor, waits for finality, checks execution success, and prints the resulting address. No deployment is claimed by this repository's Hour 1 setup. Never place a private key in this repository or commit an environment file containing one.
+`deploy/deployScript.ts` is deployment tooling only. With the target network selected in the GenLayer CLI, run `genlayer deploy` from the repository root. The script reads the contract source, passes the deterministic recall-domain allowlist to the constructor, prints the submitted hash, requires `FINALIZED` plus successful execution, and prints the resulting address. An accepted, timed-out, or execution-failed transaction is not a deployment success. Never place a private key in this repository or commit an environment file containing one.
 
 ## Evidence hashes
 
