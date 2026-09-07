@@ -152,3 +152,17 @@ assessment readback.
   `0a5f98afb34fb95a7fdab843ca6b8435a21b4192a82dd5d169d7a8c181692218`.
 - Verdict is not assumed or supplied by the frontend; the finalized contract
   assessment result is authoritative.
+
+### Current release assessment submission
+
+- Assessment transaction submitted exactly once:
+  `0x78f9a716c06f37bf700ae35a3c206b790f9f83d080558b3615f09f3c92a08ad8`
+- Initial receipt: `ACCEPTED`, execution `FINISHED_WITH_RETURN`, consensus
+  `AGREE`.
+- Initial validator observations: `5/5 AGREE`; no timeout or deterministic
+  violation was reported.
+- Initial equivalent output exposed `{"verdict":"AFFECTED"}`. This remains
+  provisional until finality, assessment readback, listing transition, and
+  attestation verification succeed.
+- The assessment must be reconciled using this exact hash; no duplicate
+  assessment write is permitted.
