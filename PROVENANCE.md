@@ -60,3 +60,12 @@ address and registration remain excluded from the fresh release path.
 The next release must use a fresh deployment transaction and independently prove
 finality, successful execution, contract readback, registration readback, and
 assessment readback.
+
+## Controlled Bradbury re-release
+
+- Fresh deployment submitted exactly once:
+  `0xab29e9a78c32fb4c800abb0c2b2568e60debaa0edd8e63f650e4071da1e42732`
+- Contract source SHA-256 and deployable byte SHA-256:
+  `6b1e595b98eaf4eaab2e98b97176dfb3b796ed43788884ee22ec05c93e9bdc6f`
+- The transaction is being reconciled by the existing deployment script; no
+  registration or assessment has been submitted against it.
