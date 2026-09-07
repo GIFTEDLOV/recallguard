@@ -41,6 +41,22 @@ and is not current deployment proof.
   `method not found`
 - No deployment or registration from this attempt may be reused as release proof.
 
+### Later read-only observation
+
+At the controlled re-release preflight, Bradbury returned a contradictory view:
+
+- The deployment transaction still returned `UNINITIALIZED` (status code `0`)
+  with a zero receipt.
+- The provisional address became readable again: `contract_info()` succeeded,
+  `get_listing_ids()` returned the recorded listing, and `get_listing()` returned
+  the expected `ACTIVE` listing with the committed FDA evidence hash.
+- The registration transaction advanced to `FINALIZED` (status code `7`) and its
+  receipt still showed `FINISHED_WITH_RETURN` and five agreeing validators.
+
+This later readback does not establish deployment finality for the old transaction
+and does not convert the historical attempt into current release proof. The old
+address and registration remain excluded from the fresh release path.
+
 The next release must use a fresh deployment transaction and independently prove
 finality, successful execution, contract readback, registration readback, and
 assessment readback.
