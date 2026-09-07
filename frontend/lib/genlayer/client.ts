@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
+import { testnetBradbury } from "genlayer-js/chains";
 
 export interface EthereumProvider {
   isMetaMask?: boolean;
@@ -17,11 +17,11 @@ declare global {
 }
 
 export const GENLAYER_RPC_URL =
-  process.env.NEXT_PUBLIC_GENLAYER_RPC_URL || "https://studio.genlayer.com/api";
+  process.env.NEXT_PUBLIC_GENLAYER_RPC_URL || "https://rpc-bradbury.genlayer.com";
 export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
-export const GENLAYER_NETWORK = "studionet" as const;
-export const GENLAYER_NETWORK_LABEL = "GenLayer Studio";
-export const EXPECTED_CHAIN_ID = `0x${studionet.id.toString(16)}`;
+export const GENLAYER_NETWORK = "testnetBradbury" as const;
+export const GENLAYER_NETWORK_LABEL = "GenLayer Bradbury";
+export const EXPECTED_CHAIN_ID = `0x${testnetBradbury.id.toString(16)}`;
 
 export function getEthereumProvider(): EthereumProvider | null {
   return typeof window === "undefined" ? null : window.ethereum || null;
@@ -57,7 +57,7 @@ export async function switchToGenLayerNetwork(walletAddress?: string): Promise<v
 
 export function createGenLayerClient(address?: string) {
   const config: Record<string, unknown> = {
-    chain: studionet,
+    chain: testnetBradbury,
     endpoint: GENLAYER_RPC_URL,
   };
   if (address) {

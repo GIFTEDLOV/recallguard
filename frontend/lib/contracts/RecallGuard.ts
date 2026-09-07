@@ -192,7 +192,7 @@ export class RecallGuardContract {
     try {
       // Network selection is a precondition. It must happen before the only
       // broadcast so an RPC ambiguity cannot cause a second wallet request.
-      await this.client.connect("studionet");
+      await this.client.connect("testnetBradbury");
       hash = await this.client.writeContract({ address: this.address, functionName: method, args, value: BigInt(0) });
       onProgress?.({ stage: "TRANSACTION_SIGNED", hash });
       onProgress?.({ stage: "SUBMISSION_SENT", hash });
