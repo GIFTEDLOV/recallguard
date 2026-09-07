@@ -192,13 +192,15 @@ assessment readback.
   `https://recallguard-gbowo1u1r-kolofahkelvin16-6437s-projects.vercel.app`
 - Production URL: `https://recallguard-seven.vercel.app`
 - Deployment source commit:
-  `8eb62ee` (full repository commit recorded by Git at deployment time)
+  `8eb62eeba693c0a707025f2d039a330b42770760`
 - The first Vercel attempt failed only because the new project defaulted to a
   static `public` output. The minimal `frontend/vercel.json` Next.js framework
   configuration corrected this; the second deployment reached `READY`.
 - Production HTTP checks returned `200` for `/` and `/app`. The deployed app
   bundle contains the verified Bradbury RPC and contract address, and a
   standard `eth_chainId` POST to the Bradbury RPC returned `0x107d`.
-- No browser-control surface was available in the release environment, so
-  actual browser console, wallet connection, responsive, and live UI contract
-  read proof remain unverified rather than being inferred from HTTP checks.
+- Codex browser automation was unavailable in the release environment.
+- Manual production browser QA was completed by the user: the site loaded,
+  Bradbury RPC worked, the wallet connected on chain `4221`, production
+  contract data loaded, and no serious console/runtime errors were observed.
+  This is manual verification, not automated browser verification.
