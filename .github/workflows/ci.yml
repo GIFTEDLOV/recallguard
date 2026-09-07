@@ -74,7 +74,8 @@ jobs:
         shell: bash
         run: |
           if rg -n --hidden -S 'PRIVATE_KEY|privateKey|PRIVATE_KEY_' \
-            --glob '!node_modules/**' --glob '!frontend/.next/**' --glob '!.git/**' .; then
+            --glob '!node_modules/**' --glob '!frontend/.next/**' --glob '!.git/**' \
+            --glob '!.github/workflows/ci.yml' .; then
             echo 'Potential secret marker found.'
             exit 1
           fi
