@@ -69,3 +69,14 @@ assessment readback.
   `6b1e595b98eaf4eaab2e98b97176dfb3b796ed43788884ee22ec05c93e9bdc6f`
 - The transaction is being reconciled by the existing deployment script; no
   registration or assessment has been submitted against it.
+
+### Controlled re-release outcome
+
+- The fresh deployment remained `ACCEPTED` (status code `5`) throughout the
+  bounded observation period.
+- Execution remained `FINISHED_WITH_RETURN` and consensus remained `AGREE` with
+  five of five validator votes agreeing.
+- No supported lifecycle action was available because
+  `gen_getTransactionLifecycle` returned `method not found`.
+- No finalizer transaction was issued for the fresh deployment.
+- No registration or assessment was submitted against the fresh deployment.
