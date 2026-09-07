@@ -72,11 +72,32 @@ assessment readback.
 
 ### Controlled re-release outcome
 
-- The fresh deployment remained `ACCEPTED` (status code `5`) throughout the
-  bounded observation period.
-- Execution remained `FINISHED_WITH_RETURN` and consensus remained `AGREE` with
-  five of five validator votes agreeing.
+- The fresh deployment reached `FINALIZED` (status code `7`) during the
+  bounded same-hash observation period.
+- Execution was `FINISHED_WITH_RETURN` and consensus was `AGREE` with five of
+  five validator votes agreeing.
 - No supported lifecycle action was available because
-  `gen_getTransactionLifecycle` returned `method not found`.
-- No finalizer transaction was issued for the fresh deployment.
-- No registration or assessment was submitted against the fresh deployment.
+  `gen_getTransactionLifecycle` returned `method not found`; no manual
+  finalizer transaction was issued.
+- The provisional deployment result established contract address
+  `0xcB6688DcD30bDB97B882c02a1B1273914dcAB563`.
+- Independent `contract_info()`, schema, listing-ID, and assessment-ID reads
+  succeeded. The listing and assessment collections were empty before the
+  prepared registration fixture.
+
+## Prepared registration fixture
+
+- Target contract: `0xcB6688DcD30bDB97B882c02a1B1273914dcAB563`
+- Canonical listing ID:
+  `1642c3b86878a03dc0e3e0e6d14c31f6c6f515632116193dfd84ab9f62c17acd`
+- Product ID: `FDA-72241`
+- Product name: `Progesterone 100 mg/mL in Corn Oil Injection`
+- Manufacturer: `Kalman Health & Wellness, Inc. dba Essential Wellness Pharma`
+- Model: `D-321-2016`
+- Serial/lot: `Lot #: 072915, Exp 10/29/2015`
+- Listing and evidence URL:
+  `https://api.fda.gov/drug/enforcement.json?limit=1`
+- Evidence response: HTTP `200`, exactly `1840` bytes
+- Evidence SHA-256:
+  `f7f370f959a8a573ee88f9ea45ed12ddd506f8cb28569347f938a0fd91d171a9`
+- Precondition read: `get_listing_ids()` returned `[]`; no duplicate listing exists.
