@@ -1,0 +1,81 @@
+name: RecallGuard CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-gates:
+    name: Contract, frontend, and provenance gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+      - name: Run Direct Mode tests
+        run: python -m pytest -q
+
+      - name: Run GenVM lint
+        run: genvm-lint check contracts/recall_guard.py
+
+      - name: Run GenVM validation
+        run: genvm-lint validate contracts/recall_guard.py
+
+      - name: Verify contract source and deployment provenance
+        shell: bash
+        run: |
+          expected='6b1e595b98eaf4eaab2e98b97176dfb3b796ed43788884ee22ec05c93e9bdc6f'
+          actual="$(sha256sum contracts/recall_guard.py | cut -d ' ' -f1)"
+          test "$actual" = "$expected"
+          grep -Fq "$expected" PROVENANCE.md
+          grep -Fq '0xcB6688DcD30bDB97B882c02a1B1273914dcAB563' PROVENANCE.md
+
+      - name: Verify production configuration
+        shell: bash
+        run: |
+          grep -Fq 'https://rpc-bradbury.genlayer.com' frontend/lib/genlayer/client.ts
+          grep -Fq 'testnetBradbury' frontend/lib/genlayer/client.ts
+          grep -Fq '0xcB6688DcD30bDB97B882c02a1B1273914dcAB563' frontend/.env.example
+          ! grep -R -nE 'studio\.genlayer\.com|studionet|61999|localhost:4000' frontend/lib frontend/.env.example
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test --workspace recallguard-frontend
+
+      - name: Run TypeScript check
+        run: npm run lint
+
+      - name: Run production build
+        run: npm run build
+
+      - name: Scan tracked source for private-key markers
+        shell: bash
+        run: |
+          if rg -n --hidden -S 'PRIVATE_KEY|privateKey|PRIVATE_KEY_' \
+            --glob '!node_modules/**' --glob '!frontend/.next/**' --glob '!.git/**' .; then
+            echo 'Potential secret marker found.'
+            exit 1
+          fi
+          echo 'No private-key markers found.'
