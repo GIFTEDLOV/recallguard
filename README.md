@@ -13,7 +13,7 @@ The only authoritative verdicts are `AFFECTED`, `NOT_AFFECTED`, and `INCONCLUSIV
 
 Recall evidence is restricted to configured HTTPS domains. Both recall and listing evidence are bounded, require HTTP 200, are decoded as strict UTF-8, and are checked against exact lowercase SHA-256 commitments. Source text is untrusted evidence, including inside the evaluator prompt. Consensus compares the decision-critical result; it does not authenticate the source.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the locked trust model, error taxonomy, state machine, API, frontend boundary, lifecycle, and limitations.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the locked trust model, error taxonomy, state machine, API, frontend boundary, lifecycle, and limitations. Historical Bradbury attempts are preserved in [PROVENANCE.md](PROVENANCE.md).
 
 ## Toolchain
 

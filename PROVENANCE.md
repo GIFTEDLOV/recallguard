@@ -1,0 +1,46 @@
+# RecallGuard deployment provenance
+
+This record preserves the first Bradbury attempt. It is historical evidence only
+and is not current deployment proof.
+
+## Historical Bradbury attempt
+
+- Classification: `HISTORICAL_BRADBURY_ATTEMPT`
+- Current-use classification: `NOT_CURRENT_DEPLOYMENT`
+- Finality classification: `NOT_FINALIZED`
+- State-proof classification: `NOT_STATE_VERIFIED`
+- Network: GenLayer Bradbury, chain ID `4221`
+- RPC: `https://rpc-bradbury.genlayer.com`
+
+### Deployment
+
+- Transaction: `0x8b7a494bd16267477fc371a42764cb39a91134e1743ba0b665997a7f2b464bb6`
+- Historical observation: `ACCEPTED`, consensus `AGREE`, execution
+  `FINISHED_WITH_RETURN`
+- Provisional address returned by the historical deployment receipt:
+  `0x0dc71E7067095b968BD1D6796D3E1f1Cd480FC30`
+- Current status observation: `UNINITIALIZED` (status code `0`)
+- Current receipt observation: zero/uninitialized receipt
+- Current readback observation: contract not found
+
+### Registration
+
+- Transaction: `0xa73b251d9aa9f284bf4657f464091e9d1fe7ac79109998129a0c4a73a5d5512e`
+- Historical/current receipt observation: `ACCEPTED` (status code `5`),
+  consensus `AGREE`, execution `FINISHED_WITH_RETURN`
+- Validator observation: five validator votes, all `AGREE`
+- Interpretation: not valid application state because the referenced deployment
+  is no longer materialized and the contract readback fails
+
+### Finalization and lifecycle observations
+
+- Historical finalizer EVM transaction:
+  `0xdb3990aeafb971f3c0a997fd2b59f04613fcc3942c4ab4a428e38a40b2135cc8`
+- Finalizer receipt: mined with EVM receipt status `0x0` (reverted)
+- `gen_getTransactionLifecycle`: current Bradbury response was
+  `method not found`
+- No deployment or registration from this attempt may be reused as release proof.
+
+The next release must use a fresh deployment transaction and independently prove
+finality, successful execution, contract readback, registration readback, and
+assessment readback.
