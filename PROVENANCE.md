@@ -124,3 +124,31 @@ assessment readback.
   proof without `FINALIZED` plus successful execution evidence.
 - No assessment, duplicate registration, finalizer, or additional deployment
   was attempted. Bradbury finality remains the release blocker.
+
+### Current release registration finalized
+
+- The same registration transaction later reached `FINALIZED` (status code
+  `7`) with execution `FINISHED_WITH_RETURN` and consensus `AGREE`.
+- Validator observations were `5/5 AGREE`.
+- `get_listing_ids()` returned the canonical listing ID and `get_listing()`
+  returned the exact prepared product, owner, URLs, evidence digest, and
+  `ACTIVE` state.
+- Registration state is now verified for the current release.
+
+### Prepared assessment fixture
+
+- Target contract: `0xcB6688DcD30bDB97B882c02a1B1273914dcAB563`
+- Listing ID: `1642c3b86878a03dc0e3e0e6d14c31f6c6f515632116193dfd84ab9f62c17acd`
+- Listing source URL: `https://api.fda.gov/drug/enforcement.json?limit=1`
+- Official recall source URL: `https://api.fda.gov/drug/enforcement.json?limit=1`
+- Listing evidence SHA-256:
+  `f7f370f959a8a573ee88f9ea45ed12ddd506f8cb28569347f938a0fd91d171a9`
+- Recall evidence SHA-256:
+  `f7f370f959a8a573ee88f9ea45ed12ddd506f8cb28569347f938a0fd91d171a9`
+- Exact byte length for each fetched source: `1840`
+- Recall host check: `api.fda.gov` is authorized by the deployed contract's
+  `fda.gov` policy.
+- Precondition listing state: `ACTIVE`; assessment ID is
+  `0a5f98afb34fb95a7fdab843ca6b8435a21b4192a82dd5d169d7a8c181692218`.
+- Verdict is not assumed or supplied by the frontend; the finalized contract
+  assessment result is authoritative.
