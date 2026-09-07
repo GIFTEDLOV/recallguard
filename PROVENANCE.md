@@ -166,3 +166,39 @@ assessment readback.
   attestation verification succeed.
 - The assessment must be reconciled using this exact hash; no duplicate
   assessment write is permitted.
+
+### Current release assessment finalized
+
+- The same assessment transaction reached `FINALIZED` (status code `7`) with
+  execution `FINISHED_WITH_RETURN` and consensus `AGREE`.
+- Validator observations were `5/5 AGREE`; validator result hashes were:
+  `0xb0e2e5b5206480e885387536385d3188c83ad9e054586ab04b1037305d9c7e99`
+  for each of the five validators. No timeout or deterministic violation was
+  reported.
+- `get_assessment()` returned verdict `AFFECTED`, `state_after` `BLOCKED`,
+  status `FINALIZED`, and the exact committed listing/recall evidence hashes.
+- `get_listing()` returned the canonical listing in state `BLOCKED`.
+- `get_attestation()` returned the matching finalized assessment record with
+  verdict `AFFECTED` and `state_after` `BLOCKED`.
+- The required transition proof is therefore:
+  `AFFECTED -> BLOCKED`.
+
+### Production frontend deployment
+
+- Production project: `recallguard`
+- Deployment ID:
+  `dpl_HXm6Lszg6jPpDULLEHZPk4NgMVKg`
+- Immutable deployment URL:
+  `https://recallguard-gbowo1u1r-kolofahkelvin16-6437s-projects.vercel.app`
+- Production URL: `https://recallguard-seven.vercel.app`
+- Deployment source commit:
+  `8eb62ee` (full repository commit recorded by Git at deployment time)
+- The first Vercel attempt failed only because the new project defaulted to a
+  static `public` output. The minimal `frontend/vercel.json` Next.js framework
+  configuration corrected this; the second deployment reached `READY`.
+- Production HTTP checks returned `200` for `/` and `/app`. The deployed app
+  bundle contains the verified Bradbury RPC and contract address, and a
+  standard `eth_chainId` POST to the Bradbury RPC returned `0x107d`.
+- No browser-control surface was available in the release environment, so
+  actual browser console, wallet connection, responsive, and live UI contract
+  read proof remain unverified rather than being inferred from HTTP checks.
