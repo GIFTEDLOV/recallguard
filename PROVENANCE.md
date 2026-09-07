@@ -111,3 +111,16 @@ assessment readback.
   `AGREE`, validator observations `5/5 AGREE`.
 - The write uses the prepared fixture above and must be reconciled by this same
   transaction hash; no duplicate registration is permitted.
+
+### Current release registration recovery outcome
+
+- Same-hash observation ran for approximately 14.8 minutes across 30 SDK
+  reads; every sample remained `ACCEPTED` (status code `5`).
+- The final receipt remained `FINISHED_WITH_RETURN`, consensus `AGREE`, with
+  five of five validator votes `AGREE`.
+- `waitForTransactionReceipt({ status: "FINALIZED" })` timed out at status 5.
+- A read-only `get_listing_ids()` call exposed the prepared listing ID and
+  therefore shows provisional state materialization, but this is not release
+  proof without `FINALIZED` plus successful execution evidence.
+- No assessment, duplicate registration, finalizer, or additional deployment
+  was attempted. Bradbury finality remains the release blocker.
