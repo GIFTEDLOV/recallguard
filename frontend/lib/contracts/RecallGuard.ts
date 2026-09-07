@@ -5,6 +5,26 @@ import type { Assessment, ContractInfo, Listing } from "../types";
 
 type Receipt = Record<string, any>;
 
+export type TransactionStage =
+  | "PRECONDITION_READ"
+  | "TRANSACTION_SIGNED"
+  | "SUBMISSION_SENT"
+  | "HASH_PERSISTED"
+  | "FINALITY_PENDING"
+  | "FINALIZED"
+  | "EXECUTION_VERIFIED"
+  | "STATE_CONFIRMED"
+  | "RECONCILING"
+  | "FAILED";
+
+export interface TransactionProgress {
+  stage: TransactionStage;
+  hash?: string;
+  detail?: string;
+}
+
+export type TransactionProgressHandler = (progress: TransactionProgress) => void;
+
 function plain(value: unknown): any {
   if (value instanceof Map) {
     return Object.fromEntries(Array.from(value.entries(), ([key, entry]) => [key, plain(entry)]));
@@ -83,9 +103,10 @@ export class RecallGuardContract {
     evidenceUrl: string;
     evidenceSha256: string;
     walletAddress: string;
-  }): Promise<{ hash: string; listingId: string }> {
+  }, onProgress?: TransactionProgressHandler): Promise<{ hash: string; listingId: string }> {
     this.resetClient(input.walletAddress);
     const id = await listingId(input);
+    onProgress?.({ stage: "PRECONDITION_READ", detail: "Checking whether this listing already exists" });
     const existingIds = await this.getListingIds();
     if (existingIds.includes(id)) throw new Error("BUSINESS:DUPLICATE_LISTING");
 
@@ -93,7 +114,7 @@ export class RecallGuardContract {
     const result = await this.executeWrite("register_listing", args, { listingId: id }, async () => {
       const listing = await this.getListing(id);
       if (listing.id !== id) throw new Error("Expected listing state was not found after finality");
-    });
+    }, onProgress);
     return { hash: result.hash, listingId: id };
   }
 
@@ -102,8 +123,9 @@ export class RecallGuardContract {
     recallUrl: string;
     recallSha256: string;
     walletAddress: string;
-  }): Promise<{ hash: string; assessmentId: string }> {
+  }, onProgress?: TransactionProgressHandler): Promise<{ hash: string; assessmentId: string }> {
     this.resetClient(input.walletAddress);
+    onProgress?.({ stage: "PRECONDITION_READ", detail: "Reading the listing before assessment" });
     const before = await this.getListing(input.listingId);
     if (before.state === "BLOCKED") throw new Error("BUSINESS:ILLEGAL_STATE_TRANSITION");
     const id = await assessmentId(input.listingId, input.recallUrl, input.recallSha256, before.evidence_sha256);
@@ -114,7 +136,7 @@ export class RecallGuardContract {
       if (assessment.id !== id || assessment.listing_id !== input.listingId || !listing.state) {
         throw new Error("Expected assessment/listing state was not found after finality");
       }
-    });
+    }, onProgress);
     return { hash: result.hash, assessmentId: id };
   }
 
@@ -122,20 +144,26 @@ export class RecallGuardContract {
     return pendingTransactions.list();
   }
 
-  async reconcilePending(hash: string): Promise<Receipt> {
+  async reconcilePending(hash: string, onProgress?: TransactionProgressHandler): Promise<Receipt> {
     const pending = pendingTransactions.list().find((entry) => entry.hash === hash);
     if (!pending) throw new Error(`No persisted transaction found for ${hash}`);
+    onProgress?.({ stage: "RECONCILING", hash, detail: "Reconnecting to the existing transaction" });
     const receipt = await this.client.waitForTransactionReceipt({ hash, status: "FINALIZED", retries: 120, interval: 5000 });
     if (!executionSucceeded(receipt)) {
       pendingTransactions.update(hash, { status: "FINALIZED_FAILURE" });
+      onProgress?.({ stage: "FAILED", hash, detail: "Finalized without evidenced execution success" });
       throw new PendingTransactionError(hash, "finalized without evidenced execution success");
     }
+    onProgress?.({ stage: "FINALIZED", hash });
+    onProgress?.({ stage: "EXECUTION_VERIFIED", hash });
     try {
       await this.verifyExpectedState(pending.expected);
       pendingTransactions.remove(hash);
+      onProgress?.({ stage: "STATE_CONFIRMED", hash });
       return receipt;
     } catch (error) {
       pendingTransactions.update(hash, { status: "RECONCILIATION_REQUIRED" });
+      onProgress?.({ stage: "FAILED", hash, detail: String(error) });
       throw new PendingTransactionError(hash, error);
     }
   }
@@ -157,7 +185,7 @@ export class RecallGuardContract {
     throw new Error("No persisted expected state descriptor is available");
   }
 
-  private async executeWrite(method: string, args: unknown[], expected: PendingExpectation, expectedState: () => Promise<void>): Promise<{ hash: string; receipt: Receipt }> {
+  private async executeWrite(method: string, args: unknown[], expected: PendingExpectation, expectedState: () => Promise<void>, onProgress?: TransactionProgressHandler): Promise<{ hash: string; receipt: Receipt }> {
     // This method is intentionally the only broadcast path. It writes the
     // returned hash before any receipt polling and never retries broadcasting.
     let hash: string;
@@ -166,23 +194,33 @@ export class RecallGuardContract {
       // broadcast so an RPC ambiguity cannot cause a second wallet request.
       await this.client.connect("studionet");
       hash = await this.client.writeContract({ address: this.address, functionName: method, args, value: BigInt(0) });
+      onProgress?.({ stage: "TRANSACTION_SIGNED", hash });
+      onProgress?.({ stage: "SUBMISSION_SENT", hash });
     } catch (error) {
+      onProgress?.({ stage: "FAILED", detail: String(error) });
       throw new Error(`Broadcast failed before a hash was returned: ${String(error)}`);
     }
     pendingTransactions.save({ hash, method, args, expected, status: "PROVISIONAL", createdAt: new Date().toISOString() });
+    onProgress?.({ stage: "HASH_PERSISTED", hash });
 
     try {
+      onProgress?.({ stage: "FINALITY_PENDING", hash });
       const receipt = await this.client.waitForTransactionReceipt({ hash, status: "FINALIZED", retries: 120, interval: 5000 });
       if (!executionSucceeded(receipt)) {
         pendingTransactions.update(hash, { status: "FINALIZED_FAILURE" });
+        onProgress?.({ stage: "FAILED", hash, detail: "Finalized without evidenced execution success" });
         throw new Error(`Finalized transaction did not prove successful execution: ${JSON.stringify(receipt)}`);
       }
+      onProgress?.({ stage: "FINALIZED", hash });
+      onProgress?.({ stage: "EXECUTION_VERIFIED", hash });
       await expectedState();
       pendingTransactions.remove(hash);
+      onProgress?.({ stage: "STATE_CONFIRMED", hash });
       return { hash, receipt };
     } catch (error) {
       if (error instanceof Error && error.message.includes("Finalized transaction did not prove")) throw error;
       pendingTransactions.update(hash, { status: "RECONCILIATION_REQUIRED" });
+      onProgress?.({ stage: "FAILED", hash, detail: String(error) });
       throw new PendingTransactionError(hash, error);
     }
   }

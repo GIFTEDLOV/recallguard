@@ -41,7 +41,7 @@ genvm-lint check contracts/recall_guard.py
 
 Integration tests live under `tests/integration` and are intentionally separate from the mocked Direct Mode suite.
 
-## Frontend
+## Frontend application
 
 Copy `.env.example` to `.env` and set `NEXT_PUBLIC_CONTRACT_ADDRESS` after deployment. The frontend is in `frontend/` and uses the current GenLayerJS wallet-provider pattern:
 
@@ -49,7 +49,17 @@ Copy `.env.example` to `.env` and set `NEXT_PUBLIC_CONTRACT_ADDRESS` after deplo
 npm run dev
 ```
 
+The production UI includes the marketing page at `/`, the contract-backed workspace at `/app`, listing registration and detail routes, the recall-check flow, an attestations directory, and activity history. The workspace has no seeded chain data: empty states are shown until the configured contract returns records.
+
 State-changing actions perform a precondition read, connect the wallet to the configured GenLayer network, broadcast exactly once, persist the hash immediately, wait for `FINALIZED`, verify execution success, read expected state, and only then report success. An ambiguous transaction remains persisted for same-hash reconciliation; the UI never rebroadcasts it automatically.
+
+Run the frontend gates from the repository root:
+
+```powershell
+npm run lint
+npm run test
+npm run build
+```
 
 ## Deployment
 

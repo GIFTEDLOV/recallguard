@@ -54,4 +54,4 @@ Every state-changing action follows: precondition read → broadcast exactly onc
 
 ## Known limitations
 
-V1 uses HTTPS domain policy and body SHA-256 commitments; it does not prove legal authority or cryptographically sign government pages. Mutable pages can change after an attestation, which is why the assessed digest is stored. Direct tests mock web/LLM hosts and do not replace a real Bradbury integration run. The frontend client is intentionally a minimal integration skeleton during Hour 1; visual product work and production deployment follow after the public contract interface is stable.
+V1 uses HTTPS domain policy and body SHA-256 commitments; it does not prove legal authority or cryptographically sign government pages. Mutable pages can change after an attestation, which is why the assessed digest is stored. Direct tests mock web/LLM hosts and do not replace a real Bradbury integration run. The frontend is a client-side wallet integration: it reads contract state, prepares evidence hashes, submits the two public writes, and displays finalized state. Browser support, wallet availability, and live Bradbury deployment remain release-preflight concerns.

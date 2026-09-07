@@ -1,111 +1,31 @@
-"use client";
+import Link from "next/link";
+import { Icon } from "../components/Icon";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { RecallGuardContract, PendingTransactionError } from "../lib/contracts/RecallGuard";
-import { connectWallet, currentWallet, CONTRACT_ADDRESS } from "../lib/genlayer/client";
-import type { PendingTransaction } from "../lib/transactions/persistence";
-import type { Assessment, Listing } from "../lib/types";
+const useCases = [
+  { title: "Marketplaces", body: "Keep a product's safety state attached to the listing that customers actually see.", icon: "box" as const },
+  { title: "Procurement", body: "Check suppliers against official notices before equipment enters an approved workflow.", icon: "scan" as const },
+  { title: "Resellers", body: "Turn recall review into a clear operational state across catalog and fulfillment teams.", icon: "activity" as const },
+  { title: "Equipment operators", body: "Track lots and models across a fleet without relying on one private database.", icon: "shield" as const },
+];
 
-const emptyListing = { productId: "", productName: "", manufacturer: "", model: "", serialOrLot: "", listingUrl: "", evidenceUrl: "", evidenceSha256: "" };
-
-export default function Home() {
-  const [wallet, setWallet] = useState<string | null>(null);
-  const [listing, setListing] = useState(emptyListing);
-  const [recall, setRecall] = useState({ listingId: "", recallUrl: "", recallSha256: "" });
-  const [records, setRecords] = useState<Array<{ listing: Listing; assessment?: Assessment }>>([]);
-  const [pending, setPending] = useState<PendingTransaction[]>([]);
-  const [message, setMessage] = useState<{ text: string; tone?: "error" | "warn" }>({ text: "Read-only contract state is available after configuration." });
-  const [busy, setBusy] = useState(false);
-
-  const contract = useMemo(() => (CONTRACT_ADDRESS ? new RecallGuardContract(CONTRACT_ADDRESS, wallet || undefined) : null), [wallet]);
-
-  useEffect(() => { void currentWallet().then(setWallet); }, []);
-  useEffect(() => { setPending(contract?.listPendingTransactions() || []); }, [contract]);
-
-  async function connect() {
-    try { setWallet(await connectWallet()); setMessage({ text: "Wallet connected. Writes will be signed by this account." }); }
-    catch (error) { setMessage({ text: String(error), tone: "error" }); }
-  }
-
-  async function refresh() {
-    if (!contract) return setMessage({ text: "Set NEXT_PUBLIC_CONTRACT_ADDRESS before reading contract state.", tone: "warn" });
-    setBusy(true);
-    try {
-      const ids = await contract.getListingIds();
-      const next = await Promise.all(ids.slice(-12).map(async (id) => ({ listing: await contract.getListing(id) })));
-      setRecords(next);
-      setPending(contract.listPendingTransactions());
-      setMessage({ text: `Loaded ${next.length} listing record${next.length === 1 ? "" : "s"} from RecallGuard.` });
-    } catch (error) { setMessage({ text: String(error), tone: "error" }); }
-    finally { setBusy(false); }
-  }
-
-  async function register(event: FormEvent) {
-    event.preventDefault();
-    if (!contract || !wallet) return setMessage({ text: "Connect a wallet and configure the contract address first.", tone: "warn" });
-    setBusy(true);
-    try {
-      const result = await contract.registerListing({ ...listing, walletAddress: wallet });
-      setRecall((value) => ({ ...value, listingId: result.listingId }));
-      setMessage({ text: `Listing finalized on-chain. ID: ${result.listingId}. Transaction: ${result.hash}` });
-      await refresh();
-    } catch (error) {
-      const text = error instanceof PendingTransactionError ? `${error.message} Refresh or reconcile the same hash; do not rebroadcast.` : String(error);
-      setMessage({ text, tone: "error" });
-    } finally { setPending(contract.listPendingTransactions()); setBusy(false); }
-  }
-
-  async function assess(event: FormEvent) {
-    event.preventDefault();
-    if (!contract || !wallet) return setMessage({ text: "Connect a wallet and configure the contract address first.", tone: "warn" });
-    setBusy(true);
-    try {
-      const result = await contract.requestAssessment({ ...recall, walletAddress: wallet });
-      setMessage({ text: `Assessment finalized on-chain. The stored attestation is ${result.assessmentId}. Transaction: ${result.hash}` });
-      await refresh();
-    } catch (error) {
-      const text = error instanceof PendingTransactionError ? `${error.message} Refresh or reconcile the same hash; do not rebroadcast.` : String(error);
-      setMessage({ text, tone: "error" });
-    } finally { setPending(contract.listPendingTransactions()); setBusy(false); }
-  }
-
-  async function reconcile(hash: string) {
-    if (!contract) return;
-    setBusy(true);
-    try {
-      await contract.reconcilePending(hash);
-      setMessage({ text: `Reconciled ${hash} against finalized execution and expected contract state.` });
-      await refresh();
-    } catch (error) {
-      setMessage({ text: `${String(error)} No new transaction was broadcast.`, tone: "error" });
-      setPending(contract.listPendingTransactions());
-    } finally { setBusy(false); }
-  }
-
-  return <main className="shell">
-    <div className="wrap">
-      <nav className="nav"><div className="brand"><div className="mark">R</div><div><strong>RecallGuard</strong><small>evidence-bound recall applicability</small></div></div><button className="button" onClick={connect}>{wallet ? `${wallet.slice(0, 6)}…${wallet.slice(-4)}` : "Connect wallet"}</button></nav>
-      <section className="hero"><div className="eyebrow">GenLayer project · hour 1 integration</div><h1>Keep unsafe listings out of circulation.</h1><p>Register a product listing, bind public evidence to exact hashes, and ask the Intelligent Contract whether an authoritative recall notice applies. RecallGuard owns the verdict; this interface only submits and reads it.</p><div className="state-row"><span className={`dot ${CONTRACT_ADDRESS ? "live" : ""}`} />{CONTRACT_ADDRESS ? "Contract configured" : "Contract address not configured"}</div></section>
-      <section className="grid">
-        <form className="panel" onSubmit={register}><h2>Register a listing</h2><p>All identity and evidence fields are committed into the contract. The browser calculates an ID preview, but the contract is authoritative.</p><div className="formgrid">
-          <label>Product ID<input required value={listing.productId} onChange={(e) => setListing({ ...listing, productId: e.target.value })} /></label>
-          <label>Product name<input required value={listing.productName} onChange={(e) => setListing({ ...listing, productName: e.target.value })} /></label>
-          <label>Manufacturer<input required value={listing.manufacturer} onChange={(e) => setListing({ ...listing, manufacturer: e.target.value })} /></label>
-          <label>Model<input required value={listing.model} onChange={(e) => setListing({ ...listing, model: e.target.value })} /></label>
-          <label>Serial / lot<input required value={listing.serialOrLot} onChange={(e) => setListing({ ...listing, serialOrLot: e.target.value })} /></label>
-          <label>Listing URL<input required type="url" placeholder="https://…" value={listing.listingUrl} onChange={(e) => setListing({ ...listing, listingUrl: e.target.value })} /></label>
-          <label className="full">Listing evidence URL<input required type="url" placeholder="https://public-source.example/product" value={listing.evidenceUrl} onChange={(e) => setListing({ ...listing, evidenceUrl: e.target.value })} /></label>
-          <label className="full">Evidence SHA-256<input required pattern="[a-f0-9]{64}" placeholder="64 lowercase hex characters" value={listing.evidenceSha256} onChange={(e) => setListing({ ...listing, evidenceSha256: e.target.value })} /></label>
-        </div><div className="actions"><button className="button primary" disabled={busy} type="submit">{busy ? "Waiting for finality…" : "Register on-chain"}</button></div></form>
-        <form className="panel" onSubmit={assess}><h2>Request an assessment</h2><p>The contract fetches both sources, verifies integrity, runs the semantic evaluator, and transitions listing state only after consensus.</p><div className="formgrid">
-          <label className="full">Listing ID<input required value={recall.listingId} onChange={(e) => setRecall({ ...recall, listingId: e.target.value })} /></label>
-          <label className="full">Official recall URL<input required type="url" placeholder="https://configured-authority.example/notice" value={recall.recallUrl} onChange={(e) => setRecall({ ...recall, recallUrl: e.target.value })} /></label>
-          <label className="full">Recall notice SHA-256<input required pattern="[a-f0-9]{64}" placeholder="64 lowercase hex characters" value={recall.recallSha256} onChange={(e) => setRecall({ ...recall, recallSha256: e.target.value })} /></label>
-        </div><div className="actions"><button className="button primary" disabled={busy} type="submit">{busy ? "Awaiting attestation…" : "Evaluate applicability"}</button></div></form>
-        <section className="panel wide"><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><div><h2>On-chain listings</h2><p>Verdicts and states below are read from RecallGuard after finalized execution. No client-side risk score or verdict is computed.</p></div><button className="button" onClick={() => void refresh()} disabled={busy}>Refresh state</button></div><div className={`status ${message.tone || ""}`}>{message.text}</div><div className="records">{records.length === 0 ? <div className="note">No listings loaded yet.</div> : records.map(({ listing: item }) => <div className="record" key={item.id}><div><strong>{item.product_name} · {item.model}</strong><code>{item.id}</code><div className="note">{item.manufacturer} · {item.serial_or_lot}</div></div><span className={`pill ${item.state.toLowerCase()}`}>{item.state}</span></div>)}</div></section>
-      {pending.length > 0 && <section className="panel pending-panel"><h2>Transactions requiring reconciliation</h2><p>These hashes were persisted before polling became ambiguous. Reconcile the same hash; this control never broadcasts again.</p>{pending.map((item) => <div className="pending-row" key={item.hash}><div><code>{item.hash}</code><div className="note">{item.method} · {item.status}</div></div><button className="button" disabled={busy} onClick={() => void reconcile(item.hash)}>Reconcile same hash</button></div>)}</section>}
-      </section>
-      <footer className="footer">RecallGuard treats official pages as mutable evidence. A transaction hash, ACCEPTED status, or finality without successful execution and expected state is not presented as success.</footer>
-    </div>
+export default function LandingPage() {
+  return <main className="marketing-page">
+    <header className="marketing-header"><Link className="marketing-brand" href="/"><span className="brand-mark">R</span><span><strong>RecallGuard</strong><small>Decentralized listing safety</small></span></Link><nav className="marketing-nav" aria-label="Marketing navigation"><a href="#how-it-works">How it works</a><a href="#network">Safety network</a><a href="#use-cases">Use cases</a></nav><Link className="button button-dark" href="/app">Open app <Icon name="arrow" size={15} /></Link></header>
+    <section className="marketing-hero"><div className="hero-copy"><div className="eyebrow eyebrow-dark"><span className="eyebrow-pulse" />Evidence-bound safety operations</div><h1>Know what should no longer be sold.</h1><p>RecallGuard answers the trust-sensitive question behind every product recall: does this specific listing fall within the affected scope of an authoritative notice?</p><div className="hero-actions"><Link className="button button-dark button-large" href="/app">Open RecallGuard <Icon name="arrow" size={17} /></Link><a className="button button-light button-large" href="#how-it-works">See how it works <Icon name="chevron" size={16} /></a></div><div className="hero-proof"><span><Icon name="shield" size={15} />Contract-owned verdicts</span><span><Icon name="network" size={15} />Independent validators</span><span><Icon name="check" size={15} />Fails closed</span></div></div><div className="hero-visual" aria-label="Illustration of a listing moving through evidence and validator assessment"><div className="visual-label">Illustrative assessment flow</div><div className="flow-card listing-flow"><div className="flow-card-top"><span className="mini-icon mini-blue"><Icon name="box" size={16} /></span><span className="flow-status">Tracked product</span></div><strong>Hydraulic pump XP-100</strong><small>Lot LOT-7 · evidence attached</small><div className="flow-chip">Listing identity committed</div></div><div className="flow-line"><span /><span /><span /></div><div className="flow-card recall-flow"><div className="flow-card-top"><span className="mini-icon mini-amber"><Icon name="link" size={16} /></span><span className="flow-status">Official evidence</span></div><strong>Recall notice 24-118</strong><small>Configured authority · SHA-256 bound</small><div className="flow-chip">Source policy + integrity</div></div><div className="flow-line"><span /><span /><span /></div><div className="flow-card result-flow"><div className="flow-card-top"><span className="mini-icon mini-green"><Icon name="shield" size={16} /></span><span className="flow-status">GenLayer assessment</span></div><strong>Shared safety state</strong><div className="result-options"><span className="result-option option-blocked">Blocked</span><span className="result-option option-review">Review</span><span className="result-option option-clear">Clear</span></div><small>Only the finalized contract record is authoritative.</small></div></div></section>
+    <section className="logo-strip"><span>Built for teams that move products</span><div><strong>MARKETPLACES</strong><strong>PROCUREMENT</strong><strong>RESELLERS</strong><strong>OPERATIONS</strong></div></section>
+    <section className="marketing-section split-section" id="how-it-works"><div className="section-lead"><div className="eyebrow eyebrow-dark">A stronger source of truth</div><h2>Recall applicability is not a keyword search.</h2><p>A listing can be affected by its model, lot, serial range, or product description. RecallGuard makes that semantic decision inside a GenLayer Intelligent Contract, against the evidence that was actually committed for assessment.</p><Link className="text-link text-link-dark" href="/app"><span>Explore the workspace</span><Icon name="arrow" size={15} /></Link></div><div className="principle-grid"><Principle number="01" title="Bind the listing" body="Product identity and public evidence references receive a deterministic on-chain identity." /><Principle number="02" title="Check the source" body="The contract enforces HTTPS, configured authority, availability, bounds, and exact integrity." /><Principle number="03" title="Reach agreement" body="Validators independently reproduce the decision-critical evidence interpretation." /><Principle number="04" title="Store the consequence" body="AFFECTED, INCONCLUSIVE, or NOT_AFFECTED maps to a visible operational state." /></div></section>
+    <section className="marketing-section network-section" id="network"><div className="section-heading centered"><div className="eyebrow eyebrow-dark">The safety network</div><h2>Agreement is visible. Evidence stays inspectable.</h2><p>RecallGuard keeps the authority boundary simple: the contract decides; the source policy and integrity checks explain what was admissible; the frontend displays the result.</p></div><div className="network-diagram"><div className="network-node node-source"><Icon name="link" size={20} /><strong>Official source</strong><span>Mutable public notice</span></div><div className="network-connector" /><div className="network-node node-contract"><Icon name="shield" size={22} /><strong>RecallGuard contract</strong><span>Decision + state transition</span></div><div className="network-connector" /><div className="network-node node-validators"><div className="validator-dots"><i /><i /><i /></div><strong>Independent validators</strong><span>Equivalent interpretation</span></div></div></section>
+    <section className="marketing-section use-case-section" id="use-cases"><div className="section-heading"><div><div className="eyebrow eyebrow-dark">Who it is for</div><h2>Make recall review operational.</h2></div><p>One shared safety state for the people who list, buy, move, and operate products.</p></div><div className="use-case-grid">{useCases.map((item) => <div className="use-case-card" key={item.title}><span className="use-case-icon"><Icon name={item.icon} size={18} /></span><h3>{item.title}</h3><p>{item.body}</p><Icon name="arrow" size={15} /></div>)}</div></section>
+    <section className="marketing-section security-section"><div className="security-panel"><div className="security-copy"><div className="eyebrow eyebrow-dark">Designed to fail closed</div><h2>No source. No agreement. No “safe.”</h2><p>Evidence failure, malformed model output, validator disagreement, and failed execution stay in their own error domains. They never become a NOT_AFFECTED verdict.</p></div><div className="security-list"><SecurityItem title="Evidence authenticity" body="Domain policy is deterministic and separate from consensus." /><SecurityItem title="Evidence integrity" body="The contract checks the exact SHA-256 commitment." /><SecurityItem title="Transaction integrity" body="A hash or finality alone is never shown as success." /></div></div></section>
+    <section className="final-cta"><div><div className="eyebrow eyebrow-light">Start with one listing</div><h2>Make the next recall decision inspectable.</h2><p>Register a product, attach its public evidence, and let the contract own the safety state.</p></div><Link className="button button-light button-large" href="/app">Open RecallGuard <Icon name="arrow" size={17} /></Link></section>
+    <footer className="marketing-footer"><Link className="marketing-brand" href="/"><span className="brand-mark">R</span><span><strong>RecallGuard</strong><small>Decentralized listing safety</small></span></Link><span>Evidence-bound product recall applicability</span><span>GenLayer Project</span></footer>
   </main>;
+}
+
+function Principle({ number, title, body }: { number: string; title: string; body: string }) {
+  return <div className="principle"><span>{number}</span><div><h3>{title}</h3><p>{body}</p></div></div>;
+}
+
+function SecurityItem({ title, body }: { title: string; body: string }) {
+  return <div className="security-item"><span className="security-check"><Icon name="check" size={14} /></span><div><strong>{title}</strong><p>{body}</p></div></div>;
 }
