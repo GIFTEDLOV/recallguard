@@ -101,3 +101,13 @@ assessment readback.
 - Evidence SHA-256:
   `f7f370f959a8a573ee88f9ea45ed12ddd506f8cb28569347f938a0fd91d171a9`
 - Precondition read: `get_listing_ids()` returned `[]`; no duplicate listing exists.
+
+### Current release registration
+
+- Target contract: `0xcB6688DcD30bDB97B882c02a1B1273914dcAB563`
+- Registration transaction submitted exactly once:
+  `0xc238a33949dafade935f0695c3760ade5c1576714092144d1f53bda50256c390`
+- Initial receipt: `ACCEPTED`, execution `FINISHED_WITH_RETURN`, consensus
+  `AGREE`, validator observations `5/5 AGREE`.
+- The write uses the prepared fixture above and must be reconciled by this same
+  transaction hash; no duplicate registration is permitted.
