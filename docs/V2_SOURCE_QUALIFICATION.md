@@ -1,99 +1,73 @@
-# V2 live source qualification
+# V2 source qualification
 
-Status: stop-gated. No blockchain transaction, application write, deployment,
-or fixture semantic execution was performed.
+Status: source gate recorded; no blockchain transaction, application write,
+deployment, or semantic fixture execution was performed.
 
-The probes used five independent processes through the installed GenLayer
-simulator live-I/O handler (`glsim.live_io.create_web_handler`). This exercises
-the same live web handler used by simulator GenVM execution, but it is not a
-GenLayer protocol transaction or a claim of on-chain validator finality.
+The CPSC probe was run five times as separate `python tools/probe_cpsc_source.py`
+observations through the installed GLSim live-I/O HTTP handler with network
+access enabled. This is a GenVM web-runtime retrieval probe, not protocol
+consensus or finality.
 
-## CPSC public page
+## CPSC authority and endpoint
 
-URL: `https://www.cpsc.gov/Recalls`
+- Authority: United States Consumer Product Safety Commission.
+- Host: `www.saferproducts.gov`.
+- Exact path: `/RestWebServices/Recall`.
+- Frozen URL:
+  `https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallNumber=26741`.
+- Caller URL control: none; the contract constructs this URL from a bounded
+  recall identifier.
 
-| Observation | Status | Bytes | SHA-256 | UTF-8 | Latency ms |
-| --- | ---: | ---: | --- | --- | ---: |
-| Validator 1 | 200 | 283575 | `479ee17b68d1aa7766430d27bf4d2a0e06f40ebb3e6d9cf622977576f4c34b78` | yes | 1853.8 |
-| Validator 2 | 200 | 283575 | same | yes | 2273.2 |
-| Validator 3 | 200 | 283575 | same | yes | 2297.2 |
-| Validator 4 | 200 | 283575 | same | yes | 2601.6 |
-| Validator 5 | 200 | 283575 | same | yes | 3127.2 |
+## Five-observation CPSC result
 
-Direct HTTP observation reported `text/html; charset=UTF-8`, final host
-`www.cpsc.gov`, and no redirects. The body is consistently retrievable but
-fails the current 24,000-byte contract cap. It is not a qualified production
-evidence source for the current contract.
+All five observations had the following stable transport and shape result:
 
-## CPSC Recall Data API
+| Observation | HTTP | Response type | Bytes | Raw SHA-256 | UTF-8 | Exact records | Stable fact SHA-256 | Effective host | Redirects | Latency ms |
+| --- | ---: | --- | ---: | --- | --- | ---: | --- | --- | --- | ---: |
+| 1 | 200 | `application/json; charset=utf-8` | 3839 | `387b1edf29c18776b21b74e5f836d119c91e7aca0c3fb95e86f0781dbe22fcff` | yes | 1 | `af1d69a4b450a352a404f86bde7c602a2b15435139a48570e25c6a814ee0d927` | `www.saferproducts.gov` | not observable / none reported | 2209.1 |
+| 2 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1857.3 |
+| 3 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1749.5 |
+| 4 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1678.2 |
+| 5 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1458.5 |
 
-URL:
-`https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallNumber=26741`
+The exact record contained `RecallID=10940`, `RecallNumber=26741`, and the
+decision fields required by the adapter. The canonical extractor includes only
+recall identity/date/title/description, product name/description/model/type,
+manufacturer names, UPCs, hazards, and remedies. It excludes public URLs,
+contacts, images, counters, publish metadata, wrapper noise, and ordering.
 
-| Observation | Status | Bytes | SHA-256 | Facts SHA-256 | UTF-8 | Latency ms |
-| --- | ---: | ---: | --- | --- | --- | ---: |
-| Validator 1 | 200 | 3839 | `387b1edf29c18776b21b74e5f836d119c91e7aca0c3fb95e86f0781dbe22fcff` | `e1cd2fde3d45b14c3cfd6b65843bd345be149e4b3355f931747373aa7a62e576` | yes | 1857.6 |
-| Validator 2 | 200 | 3839 | same | same | yes | 2249.1 |
-| Validator 3 | 200 | 3839 | same | same | yes | 2242.3 |
-| Validator 4 | 200 | 3839 | same | same | yes | 2223.0 |
-| Validator 5 | 200 | 3839 | same | same | yes | 1644.0 |
+The five observations therefore pass the current non-write CPSC transport,
+exact-record, canonical-facts, and snapshot-hash gate. The raw SHA is recorded
+for probe provenance only; the contract does not accept or store a raw body
+commitment. The canonical hash is the frozen snapshot value in
+`fixtures/v2_live_fixtures.json`.
 
-Direct HTTP observation reported `application/json; charset=utf-8`, final host
-`www.saferproducts.gov`, and no redirects. The response contained one record:
+The initial sandbox-only run returned a synthetic HTTP 502 wrapper because the
+environment blocked outbound retrieval. It was not counted as qualification;
+the same unchanged probe was rerun with read-only network access.
 
-- `RecallID=10940`, `RecallNumber=26741`, `RecallDate=2026-09-03`;
-- title, description, public CPSC URL, product, manufacturer, hazard, and
-  remedy fields were present;
-- the five raw body hashes and canonical decision-relevant fact hashes matched.
+## Amazon qualification history
 
-This is transport/fact-shape qualified, but the current V2 contract would reject
-the host because the active recall allowlist is `cpsc.gov`. Activating it requires
-a contract source-class boundary for the exact CPSC API path. It is therefore
-not production-qualified in the current contract.
+Amazon was tested before this final boundary decision at:
+`https://www.amazon.com/dp/B08N5KWB9H` using both `gl.nondet.web.get`-shaped
+retrieval and render-text probing. Five observations alternated between a
+large dynamic HTML page and 3,781-byte CAPTCHA/Continue-shopping responses;
+stable product facts were not consistently available. No workaround was used.
 
-## Amazon GET
-
-URL: `https://www.amazon.com/dp/B08N5KWB9H`
-
-All five observations returned HTTP 200 and UTF-8, but the bodies diverged:
-
-| Validator | Bytes | SHA-256 | Classification |
-| --- | ---: | --- | --- |
-| 1 | 744872 | `629b373dbface329c0b9e28d9d784bc41b7595d64071220fa30fb927382d5208` | large dynamic HTML; identity markers present |
-| 2 | 3781 | `85c0946b681733e69e56e7dd66f8ba19f5bfc034d1a9ba91b76d45cc9f4459ad` | CAPTCHA / Continue shopping; no ASIN |
-| 3 | 3781 | `27c4a7dbd6525de110f2c7fcff720fdcd2bc9a50e4d6a68f00e63967ca462a14` | CAPTCHA / Continue shopping; no ASIN |
-| 4 | 3781 | `bbecd468398467b9520916708410df7414a96159a575832dd2f2353e1ebc4be6` | CAPTCHA / Continue shopping; no ASIN |
-| 5 | 3781 | `f170c418c7fa14d6e4a41f59b59b734634ff92f9325fe93b3306131a793887cb` | CAPTCHA / Continue shopping; no ASIN |
-
-Direct HTTP observation reported `text/html`, final host `www.amazon.com`, and
-no redirects. A second classification run observed the same alternating
-challenge/large-page behavior, with the large page between 744,956 and 745,026
-bytes. Stable product facts were not consistently available.
-
-## Amazon render-text attempt
-
-The browser/render-text path was also attempted through the live-I/O handler.
-It returned divergent responses across five observations:
-
-| Validator | Bytes | SHA-256 | Classification |
-| --- | ---: | --- | --- |
-| 1 | 3781 | `ec96ad6d54f94bc8ef610ab0695565a6896af9e948bffdefa676c87e8eedb693` | CAPTCHA / Continue shopping |
-| 2 | 3781 | `98b23e62feb5726ceaa5e14ae8302538d54da922e61af3ceec413989a976ae83` | CAPTCHA / Continue shopping |
-| 3 | 3781 | `6856ba514e179d099a33aa5832f47ac79c7418c44402544b8b28f41b7db75ac1` | CAPTCHA / Continue shopping |
-| 4 | 3781 | `6b85ac95752ce07fa9270f9c1d1f0c1a431c42447ec7c6487d9e6ff4031c7dae` | CAPTCHA / Continue shopping |
-| 5 | 745052 | `2c27facb678c567b141a959f3e094985253cccede8a23d99f2be9df6f656c885` | large dynamic HTML; identity markers present |
-
-Render mode does not qualify Amazon. A challenge page is never accepted as
-listing evidence.
+Amazon is therefore **not qualified** and is removed from the RecallGuard
+consensus evidence path. It remains only a marketplace namespace and
+informational navigation URL. No Amazon HTML hash, render result, or seller
+claim is used by the contract.
 
 ## Decision
 
-- CPSC public HTML: not qualified for the current whole-page evidence model.
-- CPSC API: 5/5 transport and fact-consistency pass, but not admitted by the
-  current contract's host policy; candidate for a separately reviewed contract
-  boundary.
-- Amazon listing/evidence source: not qualified.
-- Fixtures A, B, and C: not run because the required marketplace/evidence
-  source gate failed. Their frozen direct-mode values remain unchanged.
-- No source policy was broadened to hide the failure, and no contract change was
-  made in this stop-gated phase.
+- `CPSC_SOURCE_QUALIFIED`: **NOT RELEASE-QUALIFIED YET**. The fixed CPSC API
+  passes the five-observation transport/extraction gate, but the required
+  independent-validator proof has not run on a coherent current v0.6 family.
+- `CPSC_API_QUALIFIED`: YES for the five-observation non-write retrieval gate.
+- `AMAZON_SOURCE_QUALIFIED`: NO.
+- `LISTING_EVIDENCE_SOURCE_QUALIFIED`: NO; V2 has no listing-evidence
+  consensus source class.
+- `FIXTURE_A/B/C`: not run. The coherent v0.6 RC toolchain and measured fee
+  profile are not installed, and Amazon's failure blocks any marketplace-based
+  live proof. No Bradbury transaction was broadcast.

@@ -2,11 +2,11 @@ import type { TransactionStage } from "../lib/contracts/RecallGuard";
 import { Icon } from "./Icon";
 
 const stages: Array<{ key: TransactionStage; label: string }> = [
-  { key: "PRECONDITION_READ", label: "Preparing assessment" },
-  { key: "TRANSACTION_SIGNED", label: "Transaction signed" },
-  { key: "SUBMISSION_SENT", label: "Submission sent" },
-  { key: "TRANSACTION_ACCEPTED", label: "Accepted by network" },
-  { key: "HASH_PERSISTED", label: "Hash persisted" },
+  { key: "PRECONDITION_READ", label: "Preconditions read" },
+  { key: "FEE_QUOTED", label: "Fee policy quoted" },
+  { key: "SUBMISSION_SENT", label: "Submission sent once" },
+  { key: "HASH_PERSISTED", label: "Transaction ID persisted" },
+  { key: "TRANSACTION_ACCEPTED", label: "Accepted by protocol" },
   { key: "FINALITY_PENDING", label: "Waiting for finality" },
   { key: "FINALIZED", label: "Finalized" },
   { key: "EXECUTION_VERIFIED", label: "Execution verified" },

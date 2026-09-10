@@ -1,24 +1,29 @@
-# V2 live-test fixtures
+# V2 pre-live semantic fixtures
 
-The frozen fixture manifest is
+The frozen manifest is
 [`fixtures/v2_live_fixtures.json`](../fixtures/v2_live_fixtures.json). It
-contains three deterministic owner/challenger scenarios with concrete listing
-IDs, external IDs, source URLs, evidence bytes, SHA-256 values, authority
-references, and expected verdict/state pairs.
+contains three owner/challenger scenarios bound to the same observed CPSC
+Recall Data API record (`RecallNumber=26741`) and distinct stable marketplace
+reference IDs.
 
-The committed scenarios are direct-mode captures using reserved `.example`
-domains. They are intentionally safe for offline adversarial tests and are not
-claimed to be live authorities. The manifest marks production use blocked until
-the same scenarios are represented by exact snapshots retrieved from the
-frozen production source policy (`cpsc.gov` / `amazon.com`) and pass a
-multi-validator retrieval probe.
+- Fixture A: account A registers the facts; unrelated account B requests the
+  check for a scented Mistolin cleaner with a matching `PR01-25100` date code;
+  expected `AFFECTED` -> `BLOCKED`.
+- Fixture B: registered facts clearly exclude the same authoritative scope;
+  the product is an unrelated helmet; expected `NOT_AFFECTED` -> `CLEARED`.
+- Fixture C: the authoritative record is admissible but the registered facts
+  identify a Clorox Lestoil cleaner and a matching date-code shape but do not
+  establish the recall's required scent and Puerto Rico/U.S. Virgin Islands
+  scope; expected `INCONCLUSIVE` -> `REVIEW_REQUIRED`.
 
-The semantic expectations are frozen now:
+The manifest freezes stable listing IDs, external IDs, registered facts,
+authority URL, notice ID, canonical snapshot hash, and outcomes before any
+multi-validator semantic execution. Amazon links are navigation references
+only. They are not retrieved or hashed by the contract.
 
-- A: unrelated account B challenges A's listing; `AFFECTED` → `BLOCKED`.
-- B: the notice clearly excludes the listing; `NOT_AFFECTED` → `CLEARED`.
-- C: evidence is genuinely insufficient; `INCONCLUSIVE` → `REVIEW_REQUIRED`.
+Fixture C is not a network, timeout, malformed-source, or consensus-failure
+simulation. Any such failure must produce no assessment and no state mutation.
 
-No fixture may be tuned after validator votes are observed. If the production
-source cannot provide stable, retrievable evidence for a fixture, the live run
-must stop and the source policy must be reviewed as a new release.
+The fixtures are pre-live proof inputs, not claims of protocol finality. The
+live semantic run remains blocked until the exact CPSC adapter passes the
+five-observation gate under one coherent current GenLayer toolchain.

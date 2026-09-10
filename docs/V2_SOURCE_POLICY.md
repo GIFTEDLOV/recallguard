@@ -1,86 +1,97 @@
 # RecallGuard V2 source policy
 
-The V2 release candidate freezes a deliberately small source policy. The
-contract allowlists are policy inputs, not an oracle and not a cryptographic
-signature. HTTPS establishes transport; the SHA-256 commitment binds the bytes
-that validators retrieved; consensus makes the semantic adjudication
-reproducible. None of those facts alone authenticates a publisher, proves
-legal authority, proves ownership of a listing, or makes a page immutable.
+This is a small, frozen launch policy. It separates four claims:
 
-## CPSC source topology
+1. source-policy admissibility;
+2. content integrity through canonical snapshot hashing;
+3. semantic applicability adjudication;
+4. GenLayer consensus and protocol finality.
 
-The authority is the United States Consumer Product Safety Commission (CPSC).
-The CPSC public recall pages are on `cpsc.gov`. CPSC also documents its
-machine-readable Recall Data API at `saferproducts.gov`, under the specific
-`/RestWebServices/Recall` path. That second property is admitted only for the
-CPSC-operated API purpose; it is not a generic `saferproducts.gov` content
-allowlist.
+Allowlisting a host or hashing bytes does not authenticate a publisher, seller,
+marketplace, product, or legal recall status.
 
-The current contract accepts only host-level recall domains, so the active RC
-deployment allowlist remains `cpsc.gov`. Do not append `saferproducts.gov` to
-that list without first adding an explicit host-plus-path source-class check.
-The smallest next source-boundary change is to admit exactly
-`https://www.saferproducts.gov/RestWebServices/Recall` for structured CPSC
-records and to reject other saferproducts.gov paths.
+## Exact trust question
 
-The live probe found that `https://www.cpsc.gov/Recalls` returned valid UTF-8
-with status 200 but was 283,575 bytes, exceeding the contract's 24,000-byte
-evidence cap. The structured API query for RecallNumber `26741` returned one
-JSON record, 3,839 bytes, and the same body and decision-relevant fact hash in
-all five independent observations. This qualifies the API transport/fact
-shape, but not current-contract admission; no contract or production policy
-was changed to activate it in this stop-gated phase.
+RecallGuard asks:
 
-## Exact production values
+> Given the immutable registered product/listing facts for this RecallGuard
+> record, does the independently retrieved authoritative CPSC recall record
+> place that described product within the affected recall scope?
 
-The reproducible machine-readable policy is
-[`config/v2_source_policy.json`](../config/v2_source_policy.json). The exact
-V2 RC deployment values are:
-
-```text
-recall_domains = ["cpsc.gov"]
-marketplace_domains = ["amazon.com"]
-listing_evidence_domains = ["amazon.com"]
-```
-
-`deploy/deployScript.ts` reads these values from the committed policy file and
-does not accept environment overrides. The root `.env.example` documents the
-same values for operator visibility, but those variables cannot silently drift
-the deployment arguments.
+It does not prove that Amazon displayed the registered facts, that a seller told
+the truth, that SHA-256 authenticates a publisher, or that `CLEARED` means a
+physical product is universally safe.
 
 ## Recall authority
 
-| Domain | Authority | Scope | Why admitted | Live fixture | Limitations |
-| --- | --- | --- | --- | --- | --- |
-| `cpsc.gov` | U.S. Consumer Product Safety Commission | U.S. consumer-product recalls and product-safety warnings | Federal authority publishes the recall record on its controlled government domain | `https://www.cpsc.gov/Recalls` | Pages and remedies are mutable; scope is not universal; allowlisting is not a signature |
+The authority and the admitted fetch property are deliberately separate:
 
-The structured CPSC API is documented in the topology section above and
-remains a candidate until the contract can bind the host to its exact API path
-and, preferably, a canonical decision-relevant field envelope.
+- `cpsc.gov` is the CPSC's official public web property and documents the
+  recall database/API relationship. It is not an admitted V2 fetch endpoint.
+- `www.saferproducts.gov` is admitted only for the official CPSC-operated
+  machine-readable Recall Data API at the exact path below. Arbitrary pages on
+  `saferproducts.gov` are not equivalent evidence.
 
-No FDA, Health Canada, manufacturer, or third-party recall domain is included
-in the V2 RC policy. Those can be proposed only with a separately reviewed
-scope, fixture, and retrieval proof.
-
-## Marketplace and listing evidence source
-
-| Domain | Role | Identity/evidence rule | Live fixture | Limitations |
+| Authority | Host | Path boundary | Policy role | Limitation |
 | --- | --- | --- | --- | --- |
-| `amazon.com` | Amazon marketplace/catalog and same-host listing evidence | `v2-stable-marketplace-reference`; host plus operator-supplied external reference is stable; title, metadata, URL representation, and SHA snapshot are not identity | `https://www.amazon.com/dp/B08N5KWB9H` | Automated retrieval may be blocked or dynamic; an ASIN does not prove ownership or physical authenticity; SHA is content integrity only |
+| United States Consumer Product Safety Commission | `www.saferproducts.gov` | exactly `/RestWebServices/Recall` | Official CPSC machine-readable recall data interface | Public mutable data; CPSC scope is consumer products, not a universal registry. |
 
-The marketplace and evidence host checks are separate contract checks even
-though this small launch policy uses the same domain for both. A listing URL
-must have the declared marketplace host. Arbitrary HTTPS sources are rejected.
+The contract never accepts a recall URL. A caller supplies only a bounded CPSC
+recall identifier. The contract constructs exactly:
 
-## Retrieval gate
+```text
+https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallNumber=<identifier>
+```
 
-The values are frozen in the RC artifact, but the live retrieval gate is failed
-for the current production source set. Amazon returned status 200 while
-alternating between a CAPTCHA/"Continue shopping" response and a large dynamic
-HTML page; it did not provide a stable product record across five observations.
-Deployment is blocked and the policy must be reviewed as a new release, not
-silently broadened.
+The identifier allows only uppercase/lowercase ASCII letters, digits, and
+hyphens after canonical trimming/upcasing. Host, path, format, and query names
+are contract constants. `cpsc.gov` public HTML is not an assessment input in
+V2.
 
-The complete read-only observation table is in
-[`docs/V2_SOURCE_QUALIFICATION.md`](V2_SOURCE_QUALIFICATION.md). The fixture
-URLs and policy values must not be changed after observing validator results.
+The adapter requires HTTP 200, strict UTF-8, valid JSON, an array response,
+exactly one record whose `RecallNumber` matches the requested identifier, the
+observed CPSC schema, bounded field sizes, and deterministic canonicalization.
+It extracts only `RecallID`, `RecallNumber`, `RecallDate`, `Title`,
+`Description`, product name/description/model/type, manufacturer names, UPCs,
+hazard names, and remedy names. Raw HTTP bodies, URLs, counters, contacts,
+publish timestamps, images, and API wrapper noise are not stored.
+
+## Marketplace namespace
+
+`amazon.com` remains a marketplace namespace only. Amazon is never fetched or
+rendered by GenVM, never hashed, and never used as consensus evidence. The
+Amazon URL can be shown as informational navigation. The external marketplace
+identifier is the stable identity input; registered product facts are caller
+claims committed by the registering address.
+
+The production policy therefore does not include an Amazon listing-evidence
+allowlist. There is no listing-evidence source class in the V2 contract.
+
+## Machine-readable policy
+
+The exact constructor policy and source boundary are frozen in
+`config/v2_source_policy.json`. It contains only the CPSC API host boundary and
+the marketplace namespace currently evaluated by the application. No
+environment variable may override those values during deployment.
+
+## Live qualification gate
+
+The prior five-observation probe found the CPSC API endpoint returned one
+requested record with equal stable facts and equal canonical fact hash. The
+Amazon probe alternated between a large dynamic page and CAPTCHA/“Continue
+shopping” bodies, so Amazon is explicitly **not qualified** and is excluded
+from consensus. No Fixture A/B/C semantic transaction may run until the fixed
+CPSC adapter itself passes the same gate in a coherent multi-validator
+environment.
+
+## Known limitations
+
+- CPSC records and remedy information can change; the logical notice ID remains
+  stable while each decision-relevant canonical snapshot is retained.
+- Consensus makes the adjudication reproducible; it does not authenticate the
+  CPSC publisher or confer legal certification.
+- Registered product facts are immutable claims, not independently proven
+  marketplace facts.
+- `INCONCLUSIVE` is reserved for admissible evidence with genuine semantic
+  ambiguity. Source, model, consensus, fee, and infrastructure failures create
+  no assessment and no state mutation.

@@ -1,0 +1,32 @@
+{
+  "schema": "recallguard.v2.toolchain",
+  "observed_at": "2026-09-10",
+  "target_protocol_family": "consensus-v0.6",
+  "target_release_family": {
+    "consensus_and_node": "v0.6 RC",
+    "studio": "v0.123 RC",
+    "genlayer_js": "v2.0 RC",
+    "genlayer_py": "v0.19 RC",
+    "cli": "v0.40 RC",
+    "transaction_kit": "matching v0.6-compatible prerelease",
+    "gltest": "matching v0.6-compatible prerelease"
+  },
+  "installed": {
+    "genlayer_cli": "0.39.1",
+    "genlayer_js": "1.1.8",
+    "genlayer_py": "0.19.0rc2",
+    "genlayer_test": "0.30.0rc2",
+    "glsim": "0.30.0-rc.2",
+    "genvm_linter": "0.11.0",
+    "transaction_kit": null,
+    "genvm_dependency_header": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6"
+  },
+  "repository_requirements": {
+    "genlayer_py": "git+https://github.com/genlayerlabs/genlayer-py@v0.18",
+    "genlayer_test": "git+https://github.com/genlayerlabs/genlayer-testing-suite@v0.29",
+    "genvm_linter": "git+https://github.com/genlayerlabs/genvm-linter@main",
+    "alignment": "stale relative to the installed RC packages; do not use for release installation until exact v0.6 RC refs are verified"
+  },
+  "coherent_for_v06": false,
+  "release_gate": "Do not deploy or enable fee-charging writes until one exact v0.6-compatible RC family is installed and recorded. Do not mix the installed genlayer-js 1.1.8 with the v0.6 fee lifecycle."
+}

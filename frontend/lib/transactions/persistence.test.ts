@@ -19,10 +19,10 @@ function entry(hash: string): PendingTransaction {
   return {
     hash,
     method: "request_assessment",
-    args: ["listing-1", "https://authority.example/recall", "a".repeat(64)],
+    args: ["listing-1", "26741"],
     createdAt: "2026-09-07T00:00:00.000Z",
-    status: "ACCEPTED",
-    expected: { listingId: "listing-1", assessmentId: "assessment-1" },
+    status: "SUBMITTED",
+    expected: { listingId: "listing-1", recallIdentifier: "26741" },
   };
 }
 
@@ -75,13 +75,13 @@ describe("pending transaction persistence", () => {
       hash: "0xconfirmed",
       method: "request_assessment",
       createdAt: "2026-09-07T00:00:00.000Z",
-      expected: { listingId: "listing-1", assessmentId: "assessment-1" },
+      expected: { listingId: "listing-1", recallIdentifier: "26741" },
     }]);
   });
 
   it("keeps an accepted broadcast recoverable after a refresh", () => {
     pendingTransactions.save(entry("0xaccepted"));
-    expect(pendingTransactions.list()[0].status).toBe("ACCEPTED");
+    expect(pendingTransactions.list()[0].status).toBe("SUBMITTED");
     expect(pendingTransactions.list()[0].hash).toBe("0xaccepted");
   });
 

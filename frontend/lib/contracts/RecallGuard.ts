@@ -1,5 +1,5 @@
 import { createGenLayerClient, CONTRACT_ADDRESS, GENLAYER_RPC_URL } from "../genlayer/client";
-import { assessmentId, listingId } from "../canonical";
+import { listingId } from "../canonical";
 import { pendingTransactions, type PendingExpectation, type PendingTransaction } from "../transactions/persistence";
 import type { Assessment, ContractInfo, Listing } from "../types";
 
@@ -7,10 +7,10 @@ type Receipt = Record<string, any>;
 
 export type TransactionStage =
   | "PRECONDITION_READ"
-  | "TRANSACTION_SIGNED"
+  | "FEE_QUOTED"
   | "SUBMISSION_SENT"
-  | "TRANSACTION_ACCEPTED"
   | "HASH_PERSISTED"
+  | "TRANSACTION_ACCEPTED"
   | "FINALITY_PENDING"
   | "FINALIZED"
   | "EXECUTION_VERIFIED"
@@ -37,15 +37,25 @@ function plain(value: unknown): any {
   return value;
 }
 
-function isFinalized(receipt: Receipt): boolean {
-  return receipt.statusName === "FINALIZED" || receipt.status === 6;
+function statusName(receipt: Receipt): string {
+  if (typeof receipt.statusName === "string") return receipt.statusName.toUpperCase();
+  if (typeof receipt.status === "string") return receipt.status.toUpperCase();
+  // Compatibility with the installed pre-v2 SDK only. The numeric mapping is
+  // not used as a business state and is never persisted by the contract.
+  if (receipt.status === 5) return "ACCEPTED";
+  if (receipt.status === 7) return "FINALIZED";
+  return "";
 }
 
-function executionSucceeded(receipt: Receipt): boolean {
-  if (!isFinalized(receipt)) return false;
-  if (receipt.txExecutionResultName) return receipt.txExecutionResultName === "FINISHED_WITH_RETURN";
-  const result = receipt.consensus_data?.leader_receipt?.[0]?.execution_result;
-  return result === "SUCCESS";
+/** Mirrors the official GenLayer success rule: lifecycle status plus execution result. */
+export function isSuccessfulTransaction(receipt: Receipt): boolean {
+  const lifecycle = statusName(receipt);
+  const execution = String(receipt.txExecutionResultName || receipt.executionResultName || "").toUpperCase();
+  return (lifecycle === "ACCEPTED" || lifecycle === "FINALIZED") && execution === "FINISHED_WITH_RETURN";
+}
+
+function isFinalized(receipt: Receipt): boolean {
+  return statusName(receipt) === "FINALIZED";
 }
 
 export class PendingTransactionError extends Error {
@@ -54,12 +64,24 @@ export class PendingTransactionError extends Error {
   }
 }
 
+export class FeePolicyUnavailableError extends Error {
+  constructor() {
+    super("TOOLCHAIN:GENLAYER_JS_V2_FEE_ESTIMATOR_REQUIRED");
+  }
+}
+
+export class FinalizedExecutionError extends Error {
+  constructor(public readonly receipt: Receipt) {
+    super("TRANSACTION:FINALIZED_WITHOUT_FINISHED_WITH_RETURN");
+  }
+}
+
 export class RecallGuardContract {
   private readonly address: `0x${string}`;
   private client: any;
 
   constructor(address: string = CONTRACT_ADDRESS, walletAddress?: string) {
-    if (!address) throw new Error("NEXT_PUBLIC_CONTRACT_ADDRESS is not configured");
+    if (!address) throw new Error("CONFIGURATION:CONTRACT_ADDRESS_MISSING");
     this.address = address as `0x${string}`;
     this.client = createGenLayerClient(walletAddress);
   }
@@ -108,44 +130,45 @@ export class RecallGuardContract {
     model: string;
     serialOrLot: string;
     listingUrl: string;
-    evidenceUrl: string;
-    evidenceSha256: string;
     walletAddress: string;
   }, onProgress?: TransactionProgressHandler): Promise<{ hash: string; listingId: string }> {
     this.resetClient(input.walletAddress);
     const id = await listingId(input);
-    onProgress?.({ stage: "PRECONDITION_READ", detail: "Checking whether this listing already exists" });
+    onProgress?.({ stage: "PRECONDITION_READ", detail: "Checking whether this marketplace reference already exists" });
     const existingIds = await this.getListingIds();
-    if (existingIds.includes(id)) throw new Error("BUSINESS:DUPLICATE_LISTING");
+    if (existingIds.includes(id)) throw new Error("EXPECTED:DUPLICATE_LISTING");
 
-    const args = [input.marketplaceHost, input.externalListingId, input.productId, input.productName, input.manufacturer, input.model, input.serialOrLot, input.listingUrl, input.evidenceUrl, input.evidenceSha256];
+    const args = [input.marketplaceHost, input.externalListingId, input.productId, input.productName, input.manufacturer, input.model, input.serialOrLot, input.listingUrl];
     const result = await this.executeWrite("register_listing", args, { listingId: id }, async () => {
       const listing = await this.getListing(id);
-      if (listing.id !== id) throw new Error("Expected listing state was not found after finality");
+      if (listing.id !== id || listing.state !== "UNASSESSED") throw new Error("STATE:REGISTRATION_READBACK_MISMATCH");
     }, onProgress);
     return { hash: result.hash, listingId: id };
   }
 
   async requestAssessment(input: {
     listingId: string;
-    recallUrl: string;
-    noticeReference: string;
-    recallSha256: string;
+    recallIdentifier: string;
     walletAddress: string;
   }, onProgress?: TransactionProgressHandler): Promise<{ hash: string; assessmentId: string }> {
     this.resetClient(input.walletAddress);
-    onProgress?.({ stage: "PRECONDITION_READ", detail: "Reading the listing before assessment" });
-    const before = await this.getListing(input.listingId);
-    const id = await assessmentId(input.listingId, input.recallUrl, input.noticeReference, input.recallSha256);
-    const args = [input.listingId, input.recallUrl, input.noticeReference, input.recallSha256];
-    const result = await this.executeWrite("request_assessment", args, { listingId: input.listingId, assessmentId: id }, async () => {
-      const assessment = await this.getAssessment(id);
+    onProgress?.({ stage: "PRECONDITION_READ", detail: "Reading the listing before permissionless submission" });
+    await this.getListing(input.listingId);
+    const args = [input.listingId, input.recallIdentifier];
+    const result = await this.executeWrite("request_assessment", args, { listingId: input.listingId, recallIdentifier: input.recallIdentifier }, async () => {
+      const assessmentIds = await this.getListingAssessments(input.listingId);
+      const assessments = await Promise.all(assessmentIds.map((id) => this.getAssessment(id)));
+      const matching = assessments.find((assessment) => assessment.recall_identifier === input.recallIdentifier.trim().toUpperCase());
       const listing = await this.getListing(input.listingId);
-      if (assessment.id !== id || assessment.listing_id !== input.listingId || !listing.state) {
-        throw new Error("Expected assessment/listing state was not found after finality");
+      if (!matching || matching.listing_id !== input.listingId || !listing.state) {
+        throw new Error("STATE:ASSESSMENT_READBACK_MISMATCH");
       }
     }, onProgress);
-    return { hash: result.hash, assessmentId: id };
+    const assessmentIds = await this.getListingAssessments(input.listingId);
+    const assessments = await Promise.all(assessmentIds.map((id) => this.getAssessment(id)));
+    const matching = assessments.find((assessment) => assessment.recall_identifier === input.recallIdentifier.trim().toUpperCase());
+    if (!matching) throw new PendingTransactionError(result.hash, "successful transaction had no matching assessment readback");
+    return { hash: result.hash, assessmentId: matching.id };
   }
 
   listPendingTransactions(): PendingTransaction[] {
@@ -154,13 +177,13 @@ export class RecallGuardContract {
 
   async reconcilePending(hash: string, onProgress?: TransactionProgressHandler): Promise<Receipt> {
     const pending = pendingTransactions.list().find((entry) => entry.hash === hash);
-    if (!pending) throw new Error(`No persisted transaction found for ${hash}`);
+    if (!pending) throw new Error(`EXPECTED:NO_PERSISTED_TRANSACTION:${hash}`);
     onProgress?.({ stage: "RECONCILING", hash, detail: "Reconnecting to the existing transaction" });
-    const receipt = await this.client.waitForTransactionReceipt({ hash, status: "FINALIZED", retries: 120, interval: 5000 });
-    if (!executionSucceeded(receipt)) {
-      pendingTransactions.update(hash, { status: "FINALIZED_FAILURE" });
-      onProgress?.({ stage: "FAILED", hash, detail: "Finalized without evidenced execution success" });
-      throw new PendingTransactionError(hash, "finalized without evidenced execution success");
+    const receipt = await this.waitForFinalization(hash);
+    if (!isSuccessfulTransaction(receipt)) {
+      if (isFinalized(receipt)) pendingTransactions.update(hash, { status: "FINALIZED_FAILURE" });
+      onProgress?.({ stage: "FAILED", hash, detail: "The transaction did not finish with a successful contract return" });
+      throw new FinalizedExecutionError(receipt);
     }
     onProgress?.({ stage: "FINALIZED", hash });
     onProgress?.({ stage: "EXECUTION_VERIFIED", hash });
@@ -177,49 +200,90 @@ export class RecallGuardContract {
   }
 
   private async verifyExpectedState(expected?: PendingExpectation): Promise<void> {
-    if (expected?.assessmentId && expected.listingId) {
-      const assessment = await this.getAssessment(expected.assessmentId);
-      const listing = await this.getListing(expected.listingId);
-      if (assessment.id !== expected.assessmentId || assessment.listing_id !== expected.listingId || !listing.state) {
-        throw new Error("Expected assessment/listing state was not found after finality");
+    if (expected?.listingId && expected.recallIdentifier) {
+      const assessmentIds = await this.getListingAssessments(expected.listingId);
+      const assessments = await Promise.all(assessmentIds.map((id) => this.getAssessment(id)));
+      const normalizedRecall = expected.recallIdentifier.trim().toUpperCase();
+      if (!assessments.some((assessment) => assessment.recall_identifier === normalizedRecall && assessment.listing_id === expected.listingId)) {
+        throw new Error("STATE:ASSESSMENT_READBACK_MISMATCH");
       }
       return;
     }
     if (expected?.listingId) {
       const listing = await this.getListing(expected.listingId);
-      if (listing.id !== expected.listingId) throw new Error("Expected listing state was not found after finality");
+      if (listing.id !== expected.listingId) throw new Error("STATE:LISTING_READBACK_MISMATCH");
       return;
     }
-    throw new Error("No persisted expected state descriptor is available");
+    throw new Error("STATE:NO_EXPECTED_STATE_DESCRIPTOR");
+  }
+
+  private async waitForFinalization(hash: string): Promise<Receipt> {
+    if (typeof this.client.waitForFinalization === "function") {
+      return plain(await this.client.waitForFinalization({ hash }));
+    }
+    // Compatibility path for the installed pre-v2 client. The release gate
+    // still requires the v2 SDK and fee estimator before enabling writes.
+    return plain(await this.client.waitForTransactionReceipt({ hash, status: "FINALIZED", retries: 120, interval: 5000 }));
+  }
+
+  private async quoteFees(method: string, args: unknown[]): Promise<Record<string, unknown>> {
+    if (typeof this.client.estimateTransactionFeesForWrite !== "function") {
+      throw new FeePolicyUnavailableError();
+    }
+    const estimate = await this.client.estimateTransactionFeesForWrite({
+      address: this.address,
+      functionName: method,
+      args,
+      value: BigInt(0),
+    });
+    if (!estimate || !estimate.distribution || estimate.feeValue === undefined) {
+      throw new FeePolicyUnavailableError();
+    }
+    return { distribution: estimate.distribution, feeValue: estimate.feeValue };
   }
 
   private async executeWrite(method: string, args: unknown[], expected: PendingExpectation, expectedState: () => Promise<void>, onProgress?: TransactionProgressHandler): Promise<{ hash: string; receipt: Receipt }> {
-    // This method is intentionally the only broadcast path. It writes the
-    // returned hash before any receipt polling and never retries broadcasting.
-    let hash: string;
+    // This is the only application broadcast path. Once the SDK returns a
+    // GenLayer transaction ID, all later failures reconcile that same ID.
+    await this.client.connect("testnetBradbury");
+    onProgress?.({ stage: "PRECONDITION_READ", detail: "Network and contract preconditions satisfied" });
+    let quote: Record<string, unknown>;
     try {
-      // Network selection is a precondition. It must happen before the only
-      // broadcast so an RPC ambiguity cannot cause a second wallet request.
-      await this.client.connect("testnetBradbury");
-      hash = await this.client.writeContract({ address: this.address, functionName: method, args, value: BigInt(0) });
-      onProgress?.({ stage: "TRANSACTION_SIGNED", hash });
-      onProgress?.({ stage: "SUBMISSION_SENT", hash });
+      quote = await this.quoteFees(method, args);
     } catch (error) {
       onProgress?.({ stage: "FAILED", detail: String(error) });
-      throw new Error(`Broadcast failed before a hash was returned: ${String(error)}`);
+      throw error;
     }
-    onProgress?.({ stage: "TRANSACTION_ACCEPTED", hash, detail: "The network accepted the broadcast; preserving this hash for reconciliation." });
-    pendingTransactions.save({ hash, method, args, expected, status: "ACCEPTED", createdAt: new Date().toISOString() });
+    onProgress?.({ stage: "FEE_QUOTED", detail: "Current network fee policy returned by the SDK" });
+
+    let hash: string;
+    try {
+      hash = await this.client.writeContract({
+        address: this.address,
+        functionName: method,
+        args,
+        value: BigInt(0),
+        fees: quote,
+      });
+    } catch (error) {
+      onProgress?.({ stage: "FAILED", detail: String(error) });
+      throw new Error(`Broadcast did not return a GenLayer transaction ID: ${String(error)}`);
+    }
+    onProgress?.({ stage: "SUBMISSION_SENT", hash });
+    // Persist before any polling, rendering, or readback. This is the point
+    // after which a timeout must never trigger a blind rebroadcast.
+    pendingTransactions.save({ hash, method, args, expected, status: "SUBMITTED", createdAt: new Date().toISOString() });
     onProgress?.({ stage: "HASH_PERSISTED", hash });
 
     try {
       onProgress?.({ stage: "FINALITY_PENDING", hash });
-      const receipt = await this.client.waitForTransactionReceipt({ hash, status: "FINALIZED", retries: 120, interval: 5000 });
-      if (!executionSucceeded(receipt)) {
-        pendingTransactions.update(hash, { status: "FINALIZED_FAILURE" });
-        onProgress?.({ stage: "FAILED", hash, detail: "Finalized without evidenced execution success" });
-        throw new Error(`Finalized transaction did not prove successful execution: ${JSON.stringify(receipt)}`);
+      const receipt = await this.waitForFinalization(hash);
+      if (!isSuccessfulTransaction(receipt)) {
+        if (isFinalized(receipt)) pendingTransactions.update(hash, { status: "FINALIZED_FAILURE" });
+        onProgress?.({ stage: "FAILED", hash, detail: "Finalized without FINISHED_WITH_RETURN" });
+        throw new FinalizedExecutionError(receipt);
       }
+      onProgress?.({ stage: "TRANSACTION_ACCEPTED", hash });
       onProgress?.({ stage: "FINALIZED", hash });
       onProgress?.({ stage: "EXECUTION_VERIFIED", hash });
       await expectedState();
@@ -227,7 +291,7 @@ export class RecallGuardContract {
       onProgress?.({ stage: "STATE_CONFIRMED", hash });
       return { hash, receipt };
     } catch (error) {
-      if (error instanceof Error && error.message.includes("Finalized transaction did not prove")) throw error;
+      if (error instanceof FinalizedExecutionError) throw error;
       pendingTransactions.update(hash, { status: "RECONCILIATION_REQUIRED" });
       onProgress?.({ stage: "FAILED", hash, detail: String(error) });
       throw new PendingTransactionError(hash, error);

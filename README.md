@@ -1,113 +1,122 @@
 # RecallGuard V2
 
-RecallGuard is a GenLayer marketplace safety protocol for evidence-bound
-product recall checks. V2 addresses two V1 trust-model defects identified by
-GenLayer steward review: registration is not clearance, and a listing owner
-cannot suppress an adverse assessment because assessment is permissionless.
+RecallGuard is a GenLayer product-safety application for one narrow question:
 
-V2 is implemented on branch `v2/remediation`. It is not deployed to Bradbury
-in this phase. The V1 contract, production URL, deployment address, source
-digest, and historical deployment evidence remain preserved in Git history,
+> Given the immutable registered product/listing facts for this RecallGuard
+> record, does the independently retrieved authoritative CPSC recall record
+> place that described product within the affected recall scope?
+
+It does not prove that Amazon or another marketplace displayed the registered
+facts, that a seller told the truth, that SHA-256 authenticates a publisher, or
+that a cleared record is universally safe. The contract records facts supplied
+by an address and preserves the consensus-backed CPSC applicability result.
+
+V2 is developed on `v2/remediation`. It is not deployed to Bradbury in this
+phase. V1 production evidence remains preserved in Git history,
 `PROVENANCE.md`, and [docs/V1_FREEZE.md](docs/V1_FREEZE.md).
 
-## Product model
+## Authoritative states
 
-Marketplaces, operators, resellers, and any connected user can register or
-challenge a listing. RecallGuard evaluates the listing against an allowlisted
-recall source through GenLayer consensus and stores an append-only attestation.
+- `UNASSESSED` - Not yet assessed. Registration always starts here.
+- `CLEARED` - Cleared by consensus against the recorded assessments and
+  registered facts.
+- `REVIEW_REQUIRED` - An admissible, genuinely ambiguous assessment remains.
+- `BLOCKED` - At least one relevant affected assessment remains.
 
-Authoritative listing states are:
+The aggregate priority is `AFFECTED > INCONCLUSIVE > NOT_AFFECTED`. A later
+favorable assessment cannot erase an affected or unresolved history.
 
-- `UNASSESSED` — Not yet assessed. Registration always begins here.
-- `CLEARED` — Cleared by consensus after at least one successful relevant
-  `NOT_AFFECTED` assessment.
-- `REVIEW_REQUIRED` — No affected result exists, but a recorded assessment is
-  inconclusive.
-- `BLOCKED` — At least one recorded relevant assessment is affected.
-
-The aggregate priority is `AFFECTED > INCONCLUSIVE > all NOT_AFFECTED`.
-Favorable later notices never erase a blocked or unresolved history.
-
-## V2 contract API
+## Contract API
 
 Writes:
 
 ```text
 register_listing(
   marketplace_host, external_listing_id, product_id, product_name,
-  manufacturer, model, serial_or_lot, listing_url, evidence_url,
-  evidence_sha256
+  manufacturer, model, serial_or_lot, listing_url
 )
-request_assessment(listing_id, recall_url, notice_reference, recall_sha256)
+request_assessment(listing_id, recall_identifier)
 ```
 
-`request_assessment` is permissionless. The contract stores `requested_by` and
-does not provide owner cancellation, overwrite, suppression, or administrator
-veto.
+Assessment is permissionless. The sender is stored as `requested_by`; the
+listing owner has no approval, cancellation, overwrite, deletion, or manual
+unblock power. The contract constructs the fixed CPSC API request itself:
+
+```text
+https://www.saferproducts.gov/RestWebServices/Recall
+  ?format=json&RecallNumber=<bounded_identifier>
+```
+
+The caller cannot provide a URL, host, path, query, body, or verdict.
 
 Views include `get_listing`, `get_assessment`, `get_listing_ids`,
 `get_assessment_ids`, `get_listing_assessments`, `get_attestation`, and
 `contract_info`.
 
-## Identity and evidence
+## Identity and evidence boundary
 
-The stable listing ID hashes the identity version, canonical marketplace host,
-and marketplace external listing identifier. Product ID, product name,
-manufacturer, model, serial/lot, canonical listing URL, evidence URL, and
-evidence SHA-256 are stored metadata or snapshots and cannot create a new
-identity. A configured host is a namespace; marketplaces that recycle IDs must
-include a stable generation in the external reference or receive a new identity
-version. This binds a marketplace reference without claiming ownership or
-physical authenticity.
+The stable listing ID is the SHA-256 of the identity version, canonical
+marketplace host, and normalized external listing ID. Product metadata,
+canonical URL representation, evidence snapshots, and evidence hashes do not
+change that identity. Amazon is only an informational marketplace namespace
+and navigation URL; it is never fetched, rendered, hashed, or used in
+consensus.
 
-Recall, marketplace, and listing-evidence hosts have separate configured
-allowlists. Fetched evidence must be HTTPS, HTTP 200, strict UTF-8, bounded in
-size, and equal to its lowercase SHA-256 commitment. These checks establish
-admissibility and byte integrity; they do not authenticate legal authority or
-make mutable pages immutable. Consensus adjudicates semantic applicability but
-does not authenticate evidence.
+The logical notice ID is the SHA-256 of the notice version, `CPSC`, and exact
+recall identifier. The snapshot ID is a SHA-256 of canonical decision-relevant
+CPSC fields. A changed snapshot preserves logical notice identity and creates
+an append-only historical assessment; exact duplicate listing/notice/snapshot
+replays are rejected.
 
-All model output must be exactly `{"verdict": "AFFECTED" | "NOT_AFFECTED" |
-"INCONCLUSIVE"}`. Any evidence, model, or consensus failure creates no
-business verdict and no state mutation.
+Source policy, content integrity, semantic adjudication, validator consensus,
+and GenLayer protocol finality are separate layers. Raw CPSC bodies are not
+stored. Model output is exactly one of `AFFECTED`, `NOT_AFFECTED`, or
+`INCONCLUSIVE`. Source, model, timeout, VM, fee, or consensus failures create
+no business verdict and no state mutation.
 
 ## Application routes
 
-The V2 application provides:
-
-- `/` product landing page
+- `/` landing page and trust model
 - `/app` operations dashboard
-- `/app/listings` searchable listing directory
-- `/app/listings/new` stable identity registration
-- `/app/listings/[id]` canonical identity, state, and full history
-- `/app/listings/[id]/check` permissionless recall challenge
-- `/app/assessments` and `/app/attestations` recorded assessment records
-- `/app/activity` contract append-order activity
+- `/app/listings` searchable directory
+- `/app/listings/new` registration
+- `/app/listings/[id]` complete listing detail and history
+- `/app/listings/[id]/check` permissionless CPSC challenge
+- `/app/assessments` assessment history
+- `/app/attestations` verifiable records
+- `/app/activity` transaction/activity history
 
-The interface explicitly labels `UNASSESSED` as “Not yet assessed” and never
-uses safe, active, approved, verified, or clear language for that state.
+Every listing detail page exposes the challenge path to any connected wallet.
+The UI labels `UNASSESSED` as `Not yet assessed` and never presents it as safe,
+clear, verified, approved, or active.
+
+## Transaction safety
+
+The application follows the documented GenLayer lifecycle: precondition read,
+fee quote, one broadcast, immediate transaction-ID persistence, same-ID
+finalization tracking, `status + FINISHED_WITH_RETURN` verification, then
+authoritative state readback. Refreshes, timeouts, disconnects, or accepted
+status do not trigger a blind replacement write.
 
 ## Verification
 
 ```powershell
 python -m pytest tests/direct -q
-cd frontend
-npm test -- --run
+Set-Location frontend
+npm test -- --run --pool=threads --poolOptions.threads.singleThread
 npm run lint
 npm run build
 ```
 
-The direct GenVM suite covers registration, third-party authorization, source
-policy, evidence integrity, strict model output, repeated notices, aggregate
-state priority, identity stability, and failed-path non-mutation. A live
-multi-validator Bradbury run is still required before any V2 deployment.
+The Vitest command used for the current Windows runner is:
 
-The exact RC source policy is frozen in
-[config/v2_source_policy.json](config/v2_source_policy.json), with rationale in
-[docs/V2_SOURCE_POLICY.md](docs/V2_SOURCE_POLICY.md). Pre-live semantic
-fixtures are frozen in [fixtures/v2_live_fixtures.json](fixtures/v2_live_fixtures.json);
-they are not claimed to be live authority captures.
+```powershell
+npm test -- --pool=threads --no-file-parallelism --maxWorkers=1
+```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) and
-[docs/V2_DESIGN_AUDIT.md](docs/V2_DESIGN_AUDIT.md) for the full trust model,
-threat audit, API semantics, and known limitations.
+Offline gates and live-source qualification are recorded in
+[docs/OFFICIAL_DOCS_AUDIT.md](docs/OFFICIAL_DOCS_AUDIT.md),
+[docs/V2_SOURCE_POLICY.md](docs/V2_SOURCE_POLICY.md), and
+[docs/V2_LIVE_FIXTURES.md](docs/V2_LIVE_FIXTURES.md). Bradbury deployment and
+V1 production switching remain explicitly out of scope until the documented
+toolchain, fee, CPSC, and multi-validator gates pass.

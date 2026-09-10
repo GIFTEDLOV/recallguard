@@ -24,9 +24,9 @@ export function toneForState(state: ListingState): StateTone {
 
 export function stateExplanation(state: ListingState): string {
   if (state === "UNASSESSED") return "No consensus assessment exists yet.";
-  if (state === "CLEARED") return "At least one consensus-backed assessment exists and all recorded relevant results are not affected.";
-  if (state === "REVIEW_REQUIRED") return "An inconclusive recorded assessment remains relevant.";
-  return "An affected recorded assessment remains relevant.";
+  if (state === "CLEARED") return "Cleared by consensus against the recorded assessments and registered facts.";
+  if (state === "REVIEW_REQUIRED") return "An admissible but inconclusive assessment remains relevant.";
+  return "An affected assessment remains relevant; a later favorable result cannot unblock this record.";
 }
 
 export function challengePath(listingId: string): string {
@@ -35,13 +35,8 @@ export function challengePath(listingId: string): string {
 
 export const challengeActionLabel = "Check against a recall";
 
-export function labelForState(state: ListingState): string {
-  return stateLabels[state] || state;
-}
-
-export function labelForVerdict(verdict: Verdict): string {
-  return verdictLabels[verdict] || verdict;
-}
+export function labelForState(state: ListingState): string { return stateLabels[state] || state; }
+export function labelForVerdict(verdict: Verdict): string { return verdictLabels[verdict] || verdict; }
 
 export function shortHash(value: string, start = 8, end = 6): string {
   if (!value || value.length <= start + end + 1) return value;
@@ -49,50 +44,63 @@ export function shortHash(value: string, start = 8, end = 6): string {
 }
 
 export function hostFromUrl(value: string): string {
-  try {
-    return new URL(value).host;
-  } catch {
-    return value;
-  }
+  try { return new URL(value).host; } catch { return value; }
 }
 
+function structuredCode(error: unknown): string {
+  if (!error || typeof error !== "object") return "";
+  const candidate = error as Record<string, unknown>;
+  const data = candidate.data && typeof candidate.data === "object" ? candidate.data as Record<string, unknown> : undefined;
+  const cause = candidate.cause;
+  for (const value of [candidate.code, candidate.name, data?.code, data?.errorCode, data?.name]) {
+    if (typeof value === "string" && value) return value.toUpperCase();
+  }
+  return cause ? structuredCode(cause) : "";
+}
+
+/** Classify structured protocol/RPC data first, with text as a compatibility fallback. */
 export function humanizeError(error: unknown): { title: string; message: string } {
   const raw = error instanceof Error ? error.message : String(error);
-  const normalized = raw.toLowerCase();
+  const code = structuredCode(error);
+  const signal = `${code} ${raw}`.toUpperCase();
 
-  if (normalized.includes("evidence_unavailable") || normalized.includes("timeout_or_fetch_failure")) {
-    return { title: "Evidence unavailable", message: "The official recall source could not be retrieved. No safety verdict was recorded." };
+  if (signal.includes("WRONG_CHAIN") || signal.includes("CHAIN_MISMATCH") || signal.includes("WRONG_NETWORK")) {
+    return { title: "Wrong network", message: "Switch to the configured GenLayer network before submitting." };
   }
-  if (normalized.includes("evidence_integrity") || normalized.includes("wrong_source_domain")) {
-    return { title: "Evidence integrity failure", message: "The retrieved evidence did not satisfy the configured source policy or committed hash. No safety verdict was recorded." };
+  if (signal.includes("WALLET") || signal.includes("USER_REJECTED") || signal.includes("ACCOUNT_DISCONNECTED")) {
+    return { title: "Wallet connection required", message: "Reconnect the wallet on the configured GenLayer network. No application write was broadcast." };
   }
-  if (normalized.includes("consensus") || normalized.includes("disagreement")) {
+  if (signal.includes("FEE") || signal.includes("INSUFFICIENT_FUNDS") || signal.includes("INSUFFICIENT_BALANCE")) {
+    return { title: "Insufficient fee or balance", message: "The current fee quote or wallet balance is not sufficient. Re-quote before signing." };
+  }
+  if (signal.includes("SOURCE:") || signal.includes("CPSC_HTTP") || signal.includes("INVALID_SCHEMA") || signal.includes("RECALL_NOT_FOUND")) {
+    return { title: "Source unavailable or inadmissible", message: "The authoritative CPSC record did not satisfy the fixed source and schema policy. No safety verdict was recorded." };
+  }
+  if (signal.includes("TRANSIENT:") || signal.includes("TIMEOUT") || signal.includes("FETCH_FAILED")) {
+    return { title: "Source temporarily unavailable", message: "The official CPSC source could not be retrieved. No safety verdict was recorded; reconcile the same transaction before retrying." };
+  }
+  if (signal.includes("SEMANTIC:") || signal.includes("MALFORMED_OUTPUT") || signal.includes("MODEL_")) {
+    return { title: "Assessment could not be interpreted", message: "The evaluator response did not match the strict three-value decision schema. No safety verdict was recorded." };
+  }
+  if (signal.includes("CONSENSUS:") || signal.includes("DISAGREEMENT") || signal.includes("UNDETERMINED")) {
     return { title: "Consensus not reached", message: "Validators did not reach the required agreement. The listing safety state was not changed by this assessment." };
   }
-  if (normalized.includes("semantic_model") || normalized.includes("malformed_output")) {
-    return { title: "Assessment could not be interpreted", message: "The evaluator response did not match the contract's strict decision schema. No safety verdict was recorded." };
+  if (signal.includes("FINALIZED_WITHOUT_FINISHED_WITH_RETURN") || signal.includes("FINISHED_WITH_ERROR") || signal.includes("TRANSACTION:")) {
+    return { title: "Transaction failed", message: "The transaction reached a terminal protocol state without a successful contract return. No application state change is treated as complete." };
   }
-  if (normalized.includes("finalized transaction did not prove") || normalized.includes("execution failure")) {
-    return { title: "Execution failed", message: "The transaction reached the network but did not complete successfully." };
+  if (signal.includes("RECONCILIATION") || signal.includes("PENDING")) {
+    return { title: "Transaction needs reconciliation", message: "The same transaction ID was preserved. Reconcile it before considering the action complete; no replacement was broadcast." };
   }
-  if (normalized.includes("network") || normalized.includes("chain") || normalized.includes("switch")) {
-    return { title: "Wrong network", message: "Switch to the configured GenLayer network to continue." };
+  if (signal.includes("INPUT:") || signal.includes("EXPECTED:INVALID") || signal.includes("REQUIRED")) {
+    return { title: "Input error", message: "Check the required listing and CPSC recall identifier fields." };
   }
-  if (normalized.includes("pending") || normalized.includes("reconciliation")) {
-    return { title: "Transaction needs reconciliation", message: "The same transaction hash was preserved. Reconcile it before considering the action complete; no new transaction was broadcast." };
+  if (signal.includes("STATE:")) {
+    return { title: "Application state conflict", message: "The contract state did not match the expected readback. The transaction ID remains available for reconciliation." };
   }
-  if (normalized.includes("wallet") && (normalized.includes("disconnect") || normalized.includes("connect"))) {
-    return { title: "Wallet connection required", message: "Reconnect a wallet on the configured GenLayer network. No transaction was broadcast." };
-  }
-  if (normalized.includes("duplicate")) {
-    return { title: "Already registered", message: "This record already exists on the contract." };
-  }
-  if (normalized.includes("unauthorized")) {
-    return { title: "Wallet not authorized", message: "This wallet cannot perform that operation." };
+  if (signal.includes("CONFIGURATION:")) {
+    return { title: "Configuration required", message: "This workspace is not connected to a configured RecallGuard V2 contract." };
   }
   return { title: "Could not complete request", message: raw.replace(/^Error:\s*/i, "") };
 }
 
-export function isConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_CONTRACT_ADDRESS);
-}
+export function isConfigured(): boolean { return Boolean(process.env.NEXT_PUBLIC_CONTRACT_ADDRESS); }

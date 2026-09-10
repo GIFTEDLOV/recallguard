@@ -1,70 +1,79 @@
-# V2 stable listing identity
+# RecallGuard V2 stable listing identity
 
-## Definition
+## Identity definition
 
-RecallGuard V2 treats a marketplace listing as a source reference, not as a
-hash of whatever descriptive page fields happen to be visible today. The
-stable listing ID is:
+RecallGuard uses one explicit marketplace-reference identity mode:
 
 ```text
-SHA-256(UTF-8(JSON.stringify([
+SHA256(JSON.stringify([
   "v2-stable-marketplace-reference",
   canonical_marketplace_host,
-  canonical_external_listing_id
-])))
+  normalized_external_listing_id
+]))
 ```
 
-The JSON is a compact UTF-8 array with no spaces. The external identifier is
-trimmed, lowercased, and internal whitespace is collapsed. The host is trimmed,
-lowercased, a default `:443` is removed, and one trailing DNS dot is removed.
-Non-default ports and reserved characters are rejected.
+The JSON is compact, UTF-8, and uses the same array serialization in
+`contracts/recall_guard.py` and `frontend/lib/canonical.ts`.
 
-The contract implementation is in `contracts/recall_guard.py`. The independent
-off-chain TypeScript implementation is in `frontend/lib/canonical.ts`.
-`frontend/lib/canonical.test.ts` and
-`tests/direct/test_identity_hardening.py` pin cross-implementation vectors.
+`canonical_marketplace_host` is lowercased, stripped of a default `:443`, and
+stripped of one trailing DNS dot. The external listing identifier is trimmed,
+lowercased, and internal whitespace is collapsed. It is the marketplace's
+stable identifier in that host namespace.
 
-## Why metadata is excluded
+## What is and is not an identity input
 
-The following fields are stored on the listing, but are not identity inputs:
+The following are not identity inputs and cannot create a second RecallGuard
+record for the same marketplace reference:
 
-- product ID, product name, manufacturer, model, and serial/lot;
-- listing URL path, canonical URL representation, and query parameters;
-- listing evidence URL and evidence SHA-256.
+- title or product name;
+- product/manufacturer/model formatting or descriptive metadata;
+- serial/lot metadata;
+- canonical URL representation, path, or tracking query string;
+- any mutable evidence URL, body, or SHA-256 value.
 
-Therefore the same `(marketplace host, external listing ID)` cannot evade
-assessment history by changing title, manufacturer spelling, model formatting,
-description, URL tracking parameters, or evidence snapshot. A second
-registration of that source reference is rejected as a duplicate, even when
-the descriptive metadata differs.
+Listing registration stores those product facts as the registered facts used by
+the CPSC applicability question. There is no Amazon fetch, render, body hash,
+or publisher-authentication claim in consensus. `listing_url` is informational
+navigation data and is checked only for HTTPS, host binding, and the frozen
+marketplace namespace policy.
 
-## Marketplace reuse semantics
+## Marketplace identifier reuse
 
-The host is an explicit namespace. V2 does not assume two marketplaces share
-an ID space, and the same external ID on two hosts produces two IDs. Within one
-host, the marketplace policy must define the external reference's lifecycle.
-The V2 RC policy uses Amazon's catalog/ASIN-style reference. If a future source
-reuses an external ID for a distinct listing, its adapter must include a stable
-generation or source-issued version in `external_listing_id`, or the protocol
-must introduce a new `identity_version`. The contract never infers a new
-identity from mutable product text.
+The contract does not infer marketplace ownership or identifier lifecycle. A
+configured marketplace that legitimately recycles an external identifier must
+publish a generation/version as part of the external identifier, or the
+RecallGuard policy must use a new identity version and namespace rule. A caller
+must not use a changed title or page snapshot as an identity-generation signal;
+doing so would allow history evasion.
 
-## What the identity does not prove
+The identity proves only that a stable RecallGuard record was registered under a
+canonical marketplace host/reference by the registering address. It does not
+prove that the marketplace displayed the registered facts, that a seller told
+the truth, that the product is authentic, or that the marketplace will never
+reuse the identifier.
 
-The ID does not prove that the caller owns the listing, that the listing is
-currently available, that the item is physically authentic, that metadata is
-truthful, that the marketplace page is immutable, or that an allowlisted source
-is a legally authoritative recall publisher. Those are separate source-policy,
-evidence-integrity, and consensus boundaries.
+## Notice and snapshot separation
 
-## Required invariants
+Recall notices use a separate logical identity:
 
-The V2 test suite freezes these properties:
+```text
+SHA256(JSON.stringify([
+  "v2-cpsc-recall-number",
+  "CPSC",
+  canonical_cpsc_recall_identifier
+]))
+```
 
-- same marketplace and external ID with changed title, evidence, manufacturer,
-  product ID, model, or serial/lot is the same ID and cannot be registered twice;
-- equivalent host case, default-port, trailing-dot, and URL query variations
-  cannot split identity;
-- same external ID on different marketplace namespaces differs;
-- different external IDs on one marketplace differ;
-- mutable evidence SHA never changes the stable listing identity.
+The snapshot identity is the SHA-256 of the deterministic canonical JSON
+containing only decision-relevant CPSC fields. A changed CPSC scope field keeps
+the logical notice ID but produces a new snapshot ID. Irrelevant wrapper,
+presentation, contact, publish-time, URL, and ordering fields do not change the
+snapshot. Exact `(listing_id, notice_id, snapshot_id)` replay is rejected; a
+new snapshot is appended and never overwrites history.
+
+## Independent implementation and tests
+
+The independent off-chain implementation is in
+`frontend/lib/canonical.ts`. Cross-implementation vectors and required
+metadata/URL variation cases are in `frontend/lib/canonical.test.ts` and
+`tests/direct/test_identity_hardening.py`.

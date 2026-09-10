@@ -1,102 +1,83 @@
 {
   "schema": "recallguard.v2.source-policy",
-  "policy_version": "v2-rc-2026-09-10",
-  "status": "frozen-values-live-retrieval-gate-open-source-qualification-failed",
+  "policy_version": "v2-cpsc-api-2026-09-10",
+  "status": "frozen-cpsc-only-amazon-namespace-no-consensus-fetch",
   "production": {
-    "recall_domains": ["cpsc.gov"],
-    "marketplace_domains": ["amazon.com"],
-    "listing_evidence_domains": ["amazon.com"]
+    "recall_domains": ["saferproducts.gov"],
+    "marketplace_domains": ["amazon.com"]
   },
-  "cpsc_source_topology": {
-    "authority": "United States Consumer Product Safety Commission",
-    "authorized_web_properties": [
-      {
-        "host": "cpsc.gov",
-        "purpose": "Official CPSC public recall pages",
-        "path_prefix": "/Recalls",
-        "status": "transport-qualified-but-contract-evidence-cap-failed"
-      },
-      {
-        "host": "saferproducts.gov",
-        "purpose": "CPSC Recall Data API only",
-        "path_prefix": "/RestWebServices/Recall",
-        "status": "transport-qualified-contract-path-boundary-required",
-        "not_generic_domain_allowlist": true
-      }
-    ],
-    "structured_api_probe": {
-      "url": "https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallNumber=26741",
-      "record_count": 1,
-      "stable_fields": [
-        "RecallID",
-        "RecallNumber",
-        "RecallDate",
-        "Title",
-        "Description",
-        "URL",
-        "Products",
-        "Manufacturers",
-        "ProductUPCs",
-        "Hazards",
-        "Remedies"
-      ],
-      "observed_response_bytes": 3839,
-      "observed_response_sha256": "387b1edf29c18776b21b74e5f836d119c91e7aca0c3fb95e86f0781dbe22fcff",
-      "observed_facts_sha256": "e1cd2fde3d45b14c3cfd6b65843bd345be149e4b3355f931747373aa7a62e576",
-      "five_validator_observations": "5/5 status 200, UTF-8, body hash equal, stable facts equal"
+  "trust_question": "Given immutable registered product/listing facts, does the independently retrieved authoritative CPSC recall record place that described product within the affected recall scope?",
+  "authorized_web_properties": [
+    {
+      "host": "cpsc.gov",
+      "role": "official CPSC public web property and policy documentation",
+      "admitted_fetch": false
+    },
+    {
+      "host": "www.saferproducts.gov",
+      "role": "official CPSC-operated machine-readable recall interface",
+      "admitted_fetch": true,
+      "path": "/RestWebServices/Recall",
+      "purpose": "CPSC Recall Data API only"
     }
-  },
+  ],
   "recall_authorities": [
     {
-      "domain": "cpsc.gov",
       "authority_name": "United States Consumer Product Safety Commission",
-      "category_scope": "United States consumer product recalls and product safety warnings",
-      "why_authoritative": "CPSC is the federal consumer-product safety authority and publishes the recall and product-safety-warning record on its controlled government domain.",
-      "live_test_fixture": {
-        "url": "https://www.cpsc.gov/Recalls",
-        "expected_http_status": 200,
-        "probe_requirement": "GenVM retrieval must return HTTP 200, strict UTF-8, and a stable committed snapshot before deployment."
-      },
+      "host": "www.saferproducts.gov",
+      "path": "/RestWebServices/Recall",
+      "purpose": "CPSC Recall Data API only",
+      "url_template": "https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallNumber=<bounded_identifier>",
+      "fixture": "fixtures/v2_live_fixtures.json",
+      "why_authoritative": "The CPSC documents this controlled saferproducts.gov endpoint as its machine-readable Recall Database interface.",
       "known_limitations": [
-        "CPSC pages and remedy details are mutable; the SHA-256 commits only the bytes assessed.",
-        "CPSC scope is consumer products; it is not a universal recall registry.",
-        "The domain allowlist does not cryptographically authenticate the publisher or the legal effect of a page."
+        "The public record and remedy information are mutable.",
+        "CPSC is a consumer-product recall authority, not a universal recall registry.",
+        "Host policy and HTTPS provide admissibility and transport, not publisher authentication."
       ]
     }
   ],
-  "marketplace_sources": [
+  "marketplace_namespaces": [
     {
-      "domain": "amazon.com",
-      "marketplace_name": "Amazon retail marketplace/catalog",
-      "identity_mode": "v2-stable-marketplace-reference",
-      "stable_external_identifier": "ASIN or marketplace-issued listing reference supplied by the operator",
-      "why_admissible": "The source host is explicit and the marketplace reference is kept separate from mutable title, description, URL query, and evidence fields.",
-      "live_test_fixture": {
-        "url": "https://www.amazon.com/dp/B08N5KWB9H",
-        "expected_http_status": 200,
-        "probe_requirement": "GenVM retrieval must return the committed listing evidence without an anti-bot or consent interstitial."
-      },
+      "name": "Amazon marketplace namespace",
+      "host": "amazon.com",
+      "role": "identity namespace and informational navigation URL only",
+      "stable_external_identifier": "marketplace-issued external listing identifier",
+      "consensus_fetch": false,
+      "html_hash": false,
+      "render": false,
       "known_limitations": [
-        "Amazon may render, redirect, rate-limit, or block automated retrieval; a live probe is mandatory.",
-        "An ASIN or external reference does not prove ownership, title, physical authenticity, or current offer inventory.",
-        "SHA-256 binds retrieved bytes and does not authenticate Amazon merely because the URL is HTTPS."
+        "The namespace does not prove that Amazon displayed the registered facts.",
+        "The external identifier does not prove seller truth or physical authenticity.",
+        "Amazon automated retrieval is intentionally not part of the V2 adjudication path."
       ]
     }
   ],
-  "listing_evidence_sources": [
-    {
-      "domain": "amazon.com",
-      "policy_role": "same-host marketplace listing evidence",
-      "live_test_fixture": {
-        "url": "https://www.amazon.com/dp/B08N5KWB9H",
-        "expected_http_status": 200,
-        "probe_requirement": "The exact bytes must be fetchable by GenVM and match the operator commitment."
-      },
-      "known_limitations": [
-        "This is content integrity and source admissibility, not publisher authentication.",
-        "The external evidence page can become stale; V2 has no in-place snapshot rewrite, so a new evidence policy or contract version is required rather than mutating history."
-      ]
-    }
+  "canonical_cpsc_fields": [
+    "RecallID",
+    "RecallNumber",
+    "RecallDate",
+    "Title",
+    "Description",
+    "Products[].Name",
+    "Products[].Description",
+    "Products[].Model",
+    "Products[].Type",
+    "Manufacturers[].Name",
+    "ProductUPCs[].UPC",
+    "Hazards[].Name",
+    "Remedies[].Name"
   ],
-  "deployment_gate": "Do not deploy unless the exact active domains above and the frozen fixtures pass a multi-validator retrieval probe. The saferproducts.gov property is not active deployment policy until the contract enforces the /RestWebServices/Recall CPSC API path-purpose boundary. No environment override is accepted."
+  "excluded_cpsc_fields": [
+    "URL",
+    "ConsumerContact",
+    "LastPublishDate",
+    "Images",
+    "Injuries",
+    "Retailers",
+    "Importers",
+    "Distributors",
+    "presentation and wrapper ordering"
+  ],
+  "deployment_gate": "Require five independent GenVM observations plus coherent multi-validator proof with HTTP 200, strict UTF-8, exactly one requested record, equal canonical facts, and equal snapshot hash. Do not deploy with Amazon as evidence or before the CPSC gate passes."
 }

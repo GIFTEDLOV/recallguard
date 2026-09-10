@@ -1,32 +1,58 @@
 # RecallGuard V2 verification report
 
-- V2 contract source SHA-256: `f3a9e9b488644e7a780138f33199853436a2be55e357d0356d0ed4fea57bb751`
-- Direct VM test cases: `98 passed`
-- Named direct test scenarios: `86`
-- Decision-critical mutants: `18 total, 18 killed`
-- Frontend Vitest cases: `29 passed`
-- TypeScript: passed with `npm run lint`
-- Production build: passed with `npm run build`
-- GenVM lint: passed
-- GenVM validation: passed (`9` methods: `7` views, `2` writes)
-- Local HTTP smoke check: `/` returned `200`
+This report is for the docs-aligned release candidate on
+`v2/remediation`. It records offline gates and read-only source qualification;
+it is not a deployment or live semantic proof.
 
-The V2 checkpoint source SHA-256 before hardening was
-`715972ac3c7d7ce808cfd8dcec72300aacb3c060e8a8f7616590c53b62b3b810`; the
-release-candidate source is the hardened digest above.
+Current contract source SHA-256 at this audit checkpoint:
+`abbfa666d15858d8efa41b321a39287f282963a28315b92f1a1c79aadfe3cb9b`.
 
-Mutation coverage is implemented in `scripts/v2_mutation_test.py` and covers
-registration state, stable identity, host canonicalization, source policy,
-permissionless assessment, terminal-state behavior, aggregate priority, logical
-notice/snapshot identity, notice deduplication, digest verification, strict
-model schema, and contract record terminology.
+## Current offline results
 
-The prescribed `agent-browser` executable was not installed and the available
-browser-control surface exposed no browser, so no automated visual browser
-session was completed. The production build and HTTP smoke check succeeded.
+- Direct contract suite: 91 passed.
+- Adversarial coverage: 64 named scenarios in the direct/adversarial files,
+  including identity, notice identity, authorization, source/schema failures,
+  custom validator disagreement, state aggregation, prompt injection, and
+  transaction-safety invariants.
+- Mutation suite: 19 generated, 19 killed (`MUTATION_RESULT killed=19
+  generated=19 total=19`).
+- Frontend Vitest suite: 48 passed.
+- TypeScript/lint: passed with `npm run lint`.
+- Production build: passed with `npm run build`.
+- GenVM lint phase: passed its three lint checks. The combined `check`,
+  `validate`, and strict typecheck commands could not load the documented
+  `py-genlayer:1jb...` runner archive from the installed linter cache.
+- Strict GenVM typecheck, coherent v0.6 toolchain, fee profile, and
+  Studio/GLSim semantic integration: not release-ready.
 
-The exact RC source policy is machine-readable in
-`config/v2_source_policy.json`; its live retrieval gate is intentionally still
-open. Frozen deterministic owner/challenger fixtures are in
-`fixtures/v2_live_fixtures.json`. The fixture manifest is not presented as a
-live authority capture.
+## Read-only CPSC qualification
+
+The exact frozen API source was probed five times without broadcasting or
+writing chain state:
+
+`https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallNumber=26741`
+
+All five observations returned HTTP 200, UTF-8 JSON, one exact requested
+record, equal canonical decision facts, and equal canonical snapshot hash
+`af1d69a4b450a352a404f86bde7c602a2b15435139a48570e25c6a814ee0d927`.
+Raw body size was 3839 bytes and the observed raw body SHA was
+`387b1edf29c18776b21b74e5f836d119c91e7aca0c3fb95e86f0781dbe22fcff`.
+The raw body is not stored or used as the consensus result.
+
+This was a five-observation read-only retrieval probe, not a five-validator
+GenLayer semantic execution. Frozen Fixtures A, B, and C remain pre-live and
+must not be tuned after validator votes.
+
+Amazon was deliberately excluded after five GET/render-shaped observations
+showed challenge-page and body instability. It is retained only as a
+marketplace namespace and informational URL.
+
+## Reproducibility
+
+The exact source policy is in `config/v2_source_policy.json`; the fixture
+manifest is in `fixtures/v2_live_fixtures.json`; the observed toolchain and
+its mismatch with the official v0.6 RC family are in `toolchain.json`.
+`docs/OFFICIAL_DOCS_AUDIT.md` is the controlling implementation checklist.
+
+No Bradbury transaction, application write, Vercel change, merge, or push was
+performed for this report.

@@ -1,160 +1,96 @@
 import pytest
 
-from .conftest import deploy_recall_guard, evidence_hash, listing_args, listing_args_for
+from .conftest import deploy_recall_guard, listing_args_for, setup_listing
 
 
-def test_new_registration_is_unassessed(direct_vm, direct_deploy):
+def test_new_registration_is_unassessed(direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
-    contract.register_listing(*listing_args("https://catalog.example/item/1", "listing evidence"))
-    listing = contract.get_listing(contract.get_listing_ids()[0])
+    listing_id = setup_listing(contract)
+    listing = contract.get_listing(listing_id)
     assert listing.state == "UNASSESSED"
     assert listing.identity_version == "v2-stable-marketplace-reference"
-    assert listing.evidence_sha256 == evidence_hash("listing evidence")
+    assert list(contract.get_listing_assessments(listing_id)) == []
 
 
-def test_registration_never_produces_cleared(direct_vm, direct_deploy):
+def test_registration_never_produces_cleared(direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
-    contract.register_listing(*listing_args("https://catalog.example/item/1", "listing evidence"))
-    assert contract.get_listing(contract.get_listing_ids()[0]).state != "CLEARED"
-
-
-def test_registration_has_no_assessment_history(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    contract.register_listing(*listing_args("https://catalog.example/item/1", "listing evidence"))
-    listing_id = contract.get_listing_ids()[0]
-    assert contract.get_listing_assessments(listing_id) == []
-    assert len(contract.get_assessment_ids()) == 0
+    listing_id = setup_listing(contract)
+    assert contract.get_listing(listing_id).state != "CLEARED"
 
 
 def test_duplicate_canonical_identity_rejected(direct_vm, direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
-    args = listing_args("https://catalog.example/item/1", "listing evidence")
-    contract.register_listing(*args)
-    with direct_vm.expect_revert("BUSINESS:DUPLICATE_LISTING"):
-        contract.register_listing(*args)
-
-
-def test_duplicate_identity_rejected_when_only_evidence_snapshot_changes(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    contract.register_listing(*listing_args("https://catalog.example/item/1", "old snapshot"))
-    changed = listing_args("https://catalog.example/item/1", "new snapshot")
-    with direct_vm.expect_revert("BUSINESS:DUPLICATE_LISTING"):
-        contract.register_listing(*changed)
-
-
-def test_duplicate_identity_rejected_when_descriptive_name_changes(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    contract.register_listing(*listing_args_for(product_name="Original name"))
-    changed = listing_args_for(product_name="Renamed product")
-    with direct_vm.expect_revert("BUSINESS:DUPLICATE_LISTING"):
-        contract.register_listing(*changed)
-
-
-def test_equivalent_identity_case_and_whitespace_normalizes_to_same_id(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    first = listing_args_for(external_listing_id="External-001", product_id="PROD-001")
-    second = listing_args_for(
-        external_listing_id="  external-001 ",
-        product_id=" prod-001 ",
-        manufacturer=" example manufacturer ",
-        model=" XP-100 ",
-        serial_or_lot=" lot-7 ",
-    )
-    contract.register_listing(*first)
-    with direct_vm.expect_revert("BUSINESS:DUPLICATE_LISTING"):
-        contract.register_listing(*second)
+    contract.register_listing(*listing_args_for())
+    with direct_vm.expect_revert("EXPECTED:DUPLICATE_LISTING"):
+        contract.register_listing(*listing_args_for())
 
 
 @pytest.mark.parametrize(
-    "field_index",
-    [0, 1, 2, 4, 5],
+    "field",
+    ["marketplace_host", "external_listing_id", "product_id", "product_name", "manufacturer", "model"],
 )
-def test_required_identity_fields_reject_empty(direct_vm, direct_deploy, field_index):
+def test_required_registration_fields_reject_empty(direct_vm, direct_deploy, field):
     contract = deploy_recall_guard(direct_deploy)
-    args = listing_args("https://catalog.example/item/1", "listing evidence")
-    args[field_index] = ""
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:INVALID_REQUIRED_METADATA"):
-        contract.register_listing(*args)
+    values = {
+        "marketplace_host": "market.example",
+        "external_listing_id": "external-001",
+        "product_id": "PROD-001",
+        "product_name": "Example Pump",
+        "manufacturer": "Example Manufacturer",
+        "model": "XP-100",
+        "serial_or_lot": "LOT-7",
+        "listing_url": "https://market.example/item/PROD-001",
+    }
+    values[field] = ""
+    with direct_vm.expect_revert("EXPECTED:INVALID"):
+        contract.register_listing(*values.values())
 
 
-def test_empty_serial_or_lot_is_allowed_when_not_applicable(direct_vm, direct_deploy):
+def test_empty_serial_or_lot_is_allowed(direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
-    args = listing_args_for(serial_or_lot="")
-    contract.register_listing(*args)
-    assert contract.get_listing(contract.get_listing_ids()[0]).serial_or_lot == ""
+    listing_id = setup_listing(contract, serial_or_lot="")
+    assert contract.get_listing(listing_id).serial_or_lot == ""
 
 
 def test_listing_url_must_match_declared_marketplace_host(direct_vm, direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
-    args = listing_args_for(listing_url="https://other.example/item/1")
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:LISTING_HOST_MISMATCH"):
-        contract.register_listing(*args)
+    with direct_vm.expect_revert("EXPECTED:LISTING_HOST_MISMATCH"):
+        contract.register_listing(*listing_args_for(listing_url="https://other.example/item/1"))
 
 
 def test_marketplace_domain_policy_rejects_unlisted_marketplace(direct_vm, direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
     args = listing_args_for(marketplace_host="untrusted.example", listing_url="https://untrusted.example/item/1")
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:WRONG_MARKETPLACE_DOMAIN"):
+    with direct_vm.expect_revert("EXPECTED:WRONG_MARKETPLACE_DOMAIN"):
         contract.register_listing(*args)
 
 
-def test_listing_evidence_domain_policy_rejects_unlisted_source(direct_vm, direct_deploy):
+@pytest.mark.parametrize("url", ["http://market.example/item/1", "market.example/item/1", "https://market .example/item/1"])
+def test_invalid_listing_url_rejected(direct_vm, direct_deploy, url):
     contract = deploy_recall_guard(direct_deploy)
-    args = listing_args_for(evidence_url="https://untrusted.example/item/1")
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:WRONG_LISTING_SOURCE_DOMAIN"):
-        contract.register_listing(*args)
+    with direct_vm.expect_revert("EXPECTED:"):
+        contract.register_listing(*listing_args_for(listing_url=url))
 
 
-def test_http_listing_url_rejected(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    args = listing_args_for(listing_url="http://market.example/item/1")
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:HTTPS_REQUIRED"):
-        contract.register_listing(*args)
-
-
-def test_http_evidence_url_rejected(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    args = listing_args_for(evidence_url="http://catalog.example/item/1")
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:HTTPS_REQUIRED"):
-        contract.register_listing(*args)
-
-
-def test_uppercase_digest_rejected(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    args = listing_args("https://catalog.example/item/1", "listing evidence")
-    args[-1] = args[-1].upper()
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:INVALID_REQUIRED_METADATA"):
-        contract.register_listing(*args)
-
-
-def test_bad_digest_length_rejected(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    args = listing_args("https://catalog.example/item/1", "listing evidence")
-    args[-1] = "0" * 63
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:INVALID_REQUIRED_METADATA"):
-        contract.register_listing(*args)
-
-
-def test_separator_in_identity_rejected(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    args = listing_args("https://catalog.example/item/1", "listing evidence")
-    args[1] = "external|001"
-    with direct_vm.expect_revert("EVIDENCE_INTEGRITY:INVALID_REQUIRED_METADATA"):
-        contract.register_listing(*args)
-
-
-def test_unknown_listing_view_is_rejected(direct_vm, direct_deploy):
-    contract = deploy_recall_guard(direct_deploy)
-    with direct_vm.expect_revert("BUSINESS:INVALID_ID"):
-        contract.get_listing("not-registered")
-
-
-def test_contract_info_exposes_v2_states_and_policies(direct_vm, direct_deploy):
+def test_contract_info_exposes_fixed_cpsc_policy(direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
     info = contract.contract_info()
     assert info["version"] == "v2"
     assert info["listing_state_enum"] == ["UNASSESSED", "CLEARED", "REVIEW_REQUIRED", "BLOCKED"]
-    assert info["authorized_marketplace_domains"] == ["market.example"]
-    assert info["authorized_listing_evidence_domains"] == ["catalog.example"]
-    assert info["source_policy_version"] == "v2-rc-2026-09-10"
-    assert info["duplicate_notice_policy"] == "REJECT_SAME_LISTING_AND_SNAPSHOT_ID"
+    assert info["cpsc_authority"] == "United States Consumer Product Safety Commission"
+    assert info["cpsc_host"] == "www.saferproducts.gov"
+    assert info["cpsc_path"] == "/RestWebServices/Recall"
+    assert info["raw_cpsc_body_stored"] is False
+    assert info["marketplace_evidence_in_consensus"] is False
+    assert info["administrator_exists"] is False
+
+
+def test_constructor_rejects_policy_without_cpsc_api(direct_vm, direct_deploy):
+    with direct_vm.expect_revert("EXPECTED:CPSC_API_POLICY_REQUIRED"):
+        deploy_recall_guard(direct_deploy, recall_domains=["cpsc.gov"])
+
+
+def test_unknown_listing_view_is_rejected(direct_vm, direct_deploy):
+    contract = deploy_recall_guard(direct_deploy)
+    with direct_vm.expect_revert("EXPECTED:LISTING_NOT_FOUND"):
+        contract.get_listing("not-registered")
