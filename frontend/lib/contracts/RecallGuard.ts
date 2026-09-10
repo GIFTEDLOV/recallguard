@@ -9,6 +9,7 @@ export type TransactionStage =
   | "PRECONDITION_READ"
   | "TRANSACTION_SIGNED"
   | "SUBMISSION_SENT"
+  | "TRANSACTION_ACCEPTED"
   | "HASH_PERSISTED"
   | "FINALITY_PENDING"
   | "FINALIZED"
@@ -128,14 +129,15 @@ export class RecallGuardContract {
   async requestAssessment(input: {
     listingId: string;
     recallUrl: string;
+    noticeReference: string;
     recallSha256: string;
     walletAddress: string;
   }, onProgress?: TransactionProgressHandler): Promise<{ hash: string; assessmentId: string }> {
     this.resetClient(input.walletAddress);
     onProgress?.({ stage: "PRECONDITION_READ", detail: "Reading the listing before assessment" });
     const before = await this.getListing(input.listingId);
-    const id = await assessmentId(input.listingId, input.recallUrl, input.recallSha256);
-    const args = [input.listingId, input.recallUrl, input.recallSha256];
+    const id = await assessmentId(input.listingId, input.recallUrl, input.noticeReference, input.recallSha256);
+    const args = [input.listingId, input.recallUrl, input.noticeReference, input.recallSha256];
     const result = await this.executeWrite("request_assessment", args, { listingId: input.listingId, assessmentId: id }, async () => {
       const assessment = await this.getAssessment(id);
       const listing = await this.getListing(input.listingId);
@@ -206,7 +208,8 @@ export class RecallGuardContract {
       onProgress?.({ stage: "FAILED", detail: String(error) });
       throw new Error(`Broadcast failed before a hash was returned: ${String(error)}`);
     }
-    pendingTransactions.save({ hash, method, args, expected, status: "PROVISIONAL", createdAt: new Date().toISOString() });
+    onProgress?.({ stage: "TRANSACTION_ACCEPTED", hash, detail: "The network accepted the broadcast; preserving this hash for reconciliation." });
+    pendingTransactions.save({ hash, method, args, expected, status: "ACCEPTED", createdAt: new Date().toISOString() });
     onProgress?.({ stage: "HASH_PERSISTED", hash });
 
     try {

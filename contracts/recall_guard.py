@@ -24,8 +24,10 @@ STATE_CLEARED = "CLEARED"
 STATE_REVIEW_REQUIRED = "REVIEW_REQUIRED"
 STATE_BLOCKED = "BLOCKED"
 
-ASSESSMENT_FINALIZED = "FINALIZED"
-IDENTITY_VERSION = "v2-stable-source-identity"
+ASSESSMENT_RECORDED = "RECORDED"
+IDENTITY_VERSION = "v2-stable-marketplace-reference"
+NOTICE_IDENTITY_VERSION = "v2-authority-notice-reference"
+SOURCE_POLICY_VERSION = "v2-rc-2026-09-10"
 
 
 @allow_storage
@@ -53,6 +55,8 @@ class Assessment:
     id: str
     listing_id: str
     notice_id: str
+    notice_reference: str
+    snapshot_id: str
     requested_by: Address
     recall_url: str
     recall_sha256: str
@@ -117,6 +121,17 @@ class RecallGuard(gl.Contract):
             self._fail("EVIDENCE_INTEGRITY:INVALID_REQUIRED_METADATA")
         return normalized
 
+    def _normalize_host(self, value: str) -> str:
+        self._validate_text(value)
+        host = value.strip().lower()
+        if host.endswith(":443"):
+            host = host[:-4]
+        if host.endswith("."):
+            host = host[:-1]
+        if len(host) == 0 or "." not in host or ":" in host or "/" in host or "?" in host or "#" in host or "@" in host or " " in host or "\t" in host:
+            self._fail("EVIDENCE_INTEGRITY:INVALID_REQUIRED_METADATA")
+        return host
+
     def _host(self, url: str) -> str:
         remainder = url[8:]
         end = len(remainder)
@@ -124,7 +139,12 @@ class RecallGuard(gl.Contract):
             position = remainder.find(delimiter)
             if position >= 0 and position < end:
                 end = position
-        return remainder[:end].lower()
+        raw_host = remainder[:end].lower()
+        if raw_host.endswith(":443"):
+            raw_host = raw_host[:-4]
+        if raw_host.endswith("."):
+            raw_host = raw_host[:-1]
+        return raw_host
 
     def _canonical_https_url(self, url: str) -> str:
         if not isinstance(url, str) or len(url) == 0 or len(url) > MAX_URL_LENGTH:
@@ -137,7 +157,12 @@ class RecallGuard(gl.Contract):
         if len(host) == 0 or "." not in host or ":" in host or "@" in host:
             self._fail("EVIDENCE_INTEGRITY:INVALID_REQUIRED_METADATA")
         remainder = url[8:]
-        suffix = remainder[len(self._host(url)) :]
+        authority_end = len(remainder)
+        for delimiter in ["/", "?", "#"]:
+            position = remainder.find(delimiter)
+            if position >= 0 and position < authority_end:
+                authority_end = position
+        suffix = remainder[authority_end:]
         if suffix == "/":
             suffix = ""
         return "https://" + host + suffix
@@ -162,16 +187,12 @@ class RecallGuard(gl.Contract):
         self,
         marketplace_host: str,
         external_listing_id: str,
-        product_id: str,
-        manufacturer: str,
-        model: str,
-        serial_or_lot: str,
     ) -> str:
         # JSON array canonicalization is shared with frontend/lib/canonical.ts.
-        # Product name, listing URL, evidence URL, and evidence digest are
-        # intentionally excluded because they are mutable evidence snapshots.
+        # The marketplace namespace and its external ID are the stable key.
+        # All product fields and evidence snapshots are deliberately excluded.
         return json.dumps(
-            [marketplace_host, external_listing_id, product_id, manufacturer, model, serial_or_lot],
+            [IDENTITY_VERSION, marketplace_host, external_listing_id],
             ensure_ascii=False,
             separators=(",", ":"),
         )
@@ -180,27 +201,29 @@ class RecallGuard(gl.Contract):
         self,
         marketplace_host: str,
         external_listing_id: str,
-        product_id: str,
-        manufacturer: str,
-        model: str,
-        serial_or_lot: str,
     ) -> str:
         canonical = self._canonical_listing_identity(
             marketplace_host,
             external_listing_id,
-            product_id,
-            manufacturer,
-            model,
-            serial_or_lot,
         )
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    def _notice_id(self, recall_url: str, recall_sha256: str) -> str:
-        canonical = json.dumps([recall_url, recall_sha256], separators=(",", ":"))
+    def _notice_id(self, recall_url: str, notice_reference: str) -> str:
+        # A logical notice follows the authority namespace and its issued
+        # reference. URL and content digest belong to the snapshot, not the
+        # logical notice identity.
+        canonical = json.dumps(
+            [NOTICE_IDENTITY_VERSION, self._host(recall_url), notice_reference],
+            separators=(",", ":"),
+        )
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    def _assessment_id(self, listing_id: str, notice_id: str) -> str:
-        canonical = json.dumps([listing_id, notice_id], separators=(",", ":"))
+    def _snapshot_id(self, notice_id: str, recall_sha256: str) -> str:
+        canonical = json.dumps([notice_id, recall_sha256], separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def _assessment_id(self, listing_id: str, snapshot_id: str) -> str:
+        canonical = json.dumps([listing_id, snapshot_id], separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     def _fetch_admissible_evidence(self, url: str, expected_sha256: str) -> str:
@@ -254,7 +277,7 @@ class RecallGuard(gl.Contract):
             self._fail("EVIDENCE_INTEGRITY:BAD_SHA256")
         return envelope["body"]
 
-    def _decision_prompt(self, recall_body: str, listing: Listing, listing_body: str) -> str:
+    def _decision_prompt(self, recall_body: str, listing: Listing, listing_body: str, notice_reference: str) -> str:
         return f"""SYSTEM EVALUATION INSTRUCTIONS
 You are the RecallGuard decision evaluator. Determine whether the specific product/listing is within the affected scope of the official recall notice.
 Return one JSON object only, with exactly one key named verdict. The value must be exactly one of: AFFECTED, NOT_AFFECTED, INCONCLUSIVE.
@@ -266,6 +289,7 @@ RECALL NOTICE (UNTRUSTED EVIDENCE)
 <recall_notice>
 {recall_body}
 </recall_notice>
+authority_notice_reference={notice_reference}
 
 PRODUCT/LISTING METADATA (DETERMINISTIC INPUT)
 marketplace_host={listing.marketplace_host}
@@ -314,20 +338,20 @@ PRODUCT/LISTING EVIDENCE (UNTRUSTED EVIDENCE)
         return self._parse_authoritative_verdict(result)
 
     def _derive_listing_state(self, listing_id: str) -> str:
-        has_finalized = False
+        has_recorded = False
         has_inconclusive = False
         for assessment_id in self.assessment_ids:
             assessment = self.assessments[assessment_id]
-            if assessment.listing_id != listing_id or assessment.status != ASSESSMENT_FINALIZED:
+            if assessment.listing_id != listing_id or assessment.status != ASSESSMENT_RECORDED:
                 continue
-            has_finalized = True
+            has_recorded = True
             if assessment.verdict == VERDICT_AFFECTED:
                 return STATE_BLOCKED
             if assessment.verdict == VERDICT_INCONCLUSIVE:
                 has_inconclusive = True
         if has_inconclusive:
             return STATE_REVIEW_REQUIRED
-        if has_finalized:
+        if has_recorded:
             return STATE_CLEARED
         return STATE_UNASSESSED
 
@@ -345,7 +369,7 @@ PRODUCT/LISTING EVIDENCE (UNTRUSTED EVIDENCE)
         evidence_url: str,
         evidence_sha256: str,
     ) -> None:
-        normalized_marketplace_host = self._normalize_identity_text(marketplace_host)
+        normalized_marketplace_host = self._normalize_host(marketplace_host)
         normalized_external_listing_id = self._normalize_identity_text(external_listing_id)
         normalized_product_id = self._normalize_identity_text(product_id)
         normalized_manufacturer = self._normalize_identity_text(manufacturer)
@@ -366,10 +390,6 @@ PRODUCT/LISTING EVIDENCE (UNTRUSTED EVIDENCE)
         listing_id = self._listing_id(
             normalized_marketplace_host,
             normalized_external_listing_id,
-            normalized_product_id,
-            normalized_manufacturer,
-            normalized_model,
-            normalized_serial_or_lot,
         )
         if len(listing_id) > MAX_ID_LENGTH:
             self._fail("BUSINESS:INVALID_ID")
@@ -395,7 +415,7 @@ PRODUCT/LISTING EVIDENCE (UNTRUSTED EVIDENCE)
         self.listing_ids.append(listing_id)
 
     @gl.public.write
-    def request_assessment(self, listing_id: str, recall_url: str, recall_sha256: str) -> None:
+    def request_assessment(self, listing_id: str, recall_url: str, notice_reference: str, recall_sha256: str) -> None:
         if not isinstance(listing_id, str) or len(listing_id) == 0 or len(listing_id) > MAX_ID_LENGTH:
             self._fail("BUSINESS:INVALID_ID")
         if listing_id not in self.listings:
@@ -403,31 +423,35 @@ PRODUCT/LISTING EVIDENCE (UNTRUSTED EVIDENCE)
 
         listing = self.listings[listing_id]
         canonical_recall_url = self._canonical_https_url(recall_url)
+        normalized_notice_reference = self._normalize_identity_text(notice_reference)
         self._validate_sha256(recall_sha256)
         if not self._is_authorized_host(canonical_recall_url, self.authorized_recall_domains):
             self._fail("EVIDENCE_INTEGRITY:WRONG_SOURCE_DOMAIN")
 
-        notice_id = self._notice_id(canonical_recall_url, recall_sha256)
-        assessment_id = self._assessment_id(listing_id, notice_id)
+        notice_id = self._notice_id(canonical_recall_url, normalized_notice_reference)
+        snapshot_id = self._snapshot_id(notice_id, recall_sha256)
+        assessment_id = self._assessment_id(listing_id, snapshot_id)
         if assessment_id in self.assessments:
             self._fail("BUSINESS:DUPLICATE_ASSESSMENT")
 
         recall_body = self._fetch_admissible_evidence(canonical_recall_url, recall_sha256)
         listing_body = self._fetch_admissible_evidence(listing.evidence_url, listing.evidence_sha256)
-        prompt = self._decision_prompt(recall_body, listing, listing_body)
+        prompt = self._decision_prompt(recall_body, listing, listing_body, normalized_notice_reference)
         verdict = self._evaluate_verdict(prompt)
 
         assessment = Assessment(
             id=assessment_id,
             listing_id=listing_id,
             notice_id=notice_id,
+            notice_reference=normalized_notice_reference,
+            snapshot_id=snapshot_id,
             requested_by=gl.message.sender_address,
             recall_url=canonical_recall_url,
             recall_sha256=recall_sha256,
             listing_evidence_sha256=listing.evidence_sha256,
             verdict=verdict,
             state_after=STATE_UNASSESSED,
-            status=ASSESSMENT_FINALIZED,
+            status=ASSESSMENT_RECORDED,
             authoritative_source_semantics="ALLOWLISTED_MUTABLE_AUTHORITATIVE_SOURCE",
         )
         self.assessments[assessment_id] = assessment
@@ -477,6 +501,8 @@ PRODUCT/LISTING EVIDENCE (UNTRUSTED EVIDENCE)
             "name": "RecallGuard",
             "version": "v2",
             "identity_version": IDENTITY_VERSION,
+            "notice_identity_version": NOTICE_IDENTITY_VERSION,
+            "source_policy_version": SOURCE_POLICY_VERSION,
             "verdict_enum": [VERDICT_AFFECTED, VERDICT_NOT_AFFECTED, VERDICT_INCONCLUSIVE],
             "listing_state_enum": [STATE_UNASSESSED, STATE_CLEARED, STATE_REVIEW_REQUIRED, STATE_BLOCKED],
             "max_evidence_bytes": MAX_EVIDENCE_BYTES,
@@ -485,5 +511,7 @@ PRODUCT/LISTING EVIDENCE (UNTRUSTED EVIDENCE)
             "authorized_marketplace_domains": [domain for domain in self.authorized_marketplace_domains],
             "authorized_listing_evidence_domains": [domain for domain in self.authorized_listing_evidence_domains],
             "assessment_aggregation": "AFFECTED_THEN_INCONCLUSIVE_THEN_ALL_NOT_AFFECTED",
-            "duplicate_notice_policy": "REJECT_SAME_LISTING_AND_NOTICE_ID",
+            "assessment_record_status": ASSESSMENT_RECORDED,
+            "duplicate_notice_policy": "REJECT_SAME_LISTING_AND_SNAPSHOT_ID",
+            "notice_snapshot_policy": "SAME_LOGICAL_NOTICE_MAY_RECORD_NEW_SHA256_SNAPSHOT",
         }

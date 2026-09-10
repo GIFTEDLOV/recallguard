@@ -1,0 +1,63 @@
+{
+  "schema": "recallguard.v2.source-policy",
+  "policy_version": "v2-rc-2026-09-10",
+  "status": "frozen-values-live-retrieval-gate-open",
+  "production": {
+    "recall_domains": ["cpsc.gov"],
+    "marketplace_domains": ["amazon.com"],
+    "listing_evidence_domains": ["amazon.com"]
+  },
+  "recall_authorities": [
+    {
+      "domain": "cpsc.gov",
+      "authority_name": "United States Consumer Product Safety Commission",
+      "category_scope": "United States consumer product recalls and product safety warnings",
+      "why_authoritative": "CPSC is the federal consumer-product safety authority and publishes the recall and product-safety-warning record on its controlled government domain.",
+      "live_test_fixture": {
+        "url": "https://www.cpsc.gov/Recalls",
+        "expected_http_status": 200,
+        "probe_requirement": "GenVM retrieval must return HTTP 200, strict UTF-8, and a stable committed snapshot before deployment."
+      },
+      "known_limitations": [
+        "CPSC pages and remedy details are mutable; the SHA-256 commits only the bytes assessed.",
+        "CPSC scope is consumer products; it is not a universal recall registry.",
+        "The domain allowlist does not cryptographically authenticate the publisher or the legal effect of a page."
+      ]
+    }
+  ],
+  "marketplace_sources": [
+    {
+      "domain": "amazon.com",
+      "marketplace_name": "Amazon retail marketplace/catalog",
+      "identity_mode": "v2-stable-marketplace-reference",
+      "stable_external_identifier": "ASIN or marketplace-issued listing reference supplied by the operator",
+      "why_admissible": "The source host is explicit and the marketplace reference is kept separate from mutable title, description, URL query, and evidence fields.",
+      "live_test_fixture": {
+        "url": "https://www.amazon.com/dp/B08N5KWB9H",
+        "expected_http_status": 200,
+        "probe_requirement": "GenVM retrieval must return the committed listing evidence without an anti-bot or consent interstitial."
+      },
+      "known_limitations": [
+        "Amazon may render, redirect, rate-limit, or block automated retrieval; a live probe is mandatory.",
+        "An ASIN or external reference does not prove ownership, title, physical authenticity, or current offer inventory.",
+        "SHA-256 binds retrieved bytes and does not authenticate Amazon merely because the URL is HTTPS."
+      ]
+    }
+  ],
+  "listing_evidence_sources": [
+    {
+      "domain": "amazon.com",
+      "policy_role": "same-host marketplace listing evidence",
+      "live_test_fixture": {
+        "url": "https://www.amazon.com/dp/B08N5KWB9H",
+        "expected_http_status": 200,
+        "probe_requirement": "The exact bytes must be fetchable by GenVM and match the operator commitment."
+      },
+      "known_limitations": [
+        "This is content integrity and source admissibility, not publisher authentication.",
+        "The external evidence page can become stale; V2 has no in-place snapshot rewrite, so a new evidence policy or contract version is required rather than mutating history."
+      ]
+    }
+  ],
+  "deployment_gate": "Do not deploy unless the exact domains above and the frozen fixtures pass a multi-validator retrieval probe; no environment override is accepted."
+}

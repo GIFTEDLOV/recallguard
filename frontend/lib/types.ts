@@ -22,13 +22,15 @@ export interface Assessment {
   id: string;
   listing_id: string;
   notice_id: string;
+  notice_reference: string;
+  snapshot_id: string;
   requested_by: string;
   recall_url: string;
   recall_sha256: string;
   listing_evidence_sha256: string;
   verdict: Verdict;
   state_after: ListingState;
-  status: "FINALIZED";
+  status: "RECORDED";
   authoritative_source_semantics: "ALLOWLISTED_MUTABLE_AUTHORITATIVE_SOURCE";
 }
 
@@ -43,6 +45,10 @@ export interface ContractInfo {
   authorized_marketplace_domains: string[];
   authorized_listing_evidence_domains: string[];
   identity_version: string;
+  notice_identity_version: string;
+  source_policy_version: string;
   assessment_aggregation: string;
   duplicate_notice_policy: string;
+  assessment_record_status: "RECORDED";
+  notice_snapshot_policy: string;
 }

@@ -2,6 +2,19 @@ from .conftest import deploy_recall_guard, evidence_hash, listing_args
 from .test_assessment import LISTING_BODY, RECALL_URL, request_one, setup_listing
 
 
+def assess_sequence(contract, direct_vm, listing_id, sequence):
+    for index, (verdict, body) in enumerate(sequence, start=1):
+        request_one(
+            contract,
+            direct_vm,
+            listing_id,
+            recall_url=f"https://recalls.example.gov/notice/{index}",
+            notice_reference=f"ORDER-{index}",
+            recall_body=body,
+            verdict=verdict,
+        )
+
+
 def test_cleared_plus_affected_is_blocked(direct_vm, direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
     listing_id = setup_listing(contract)
@@ -85,16 +98,17 @@ def test_same_notice_same_digest_is_duplicate_and_idempotence_is_explicit(direct
     direct_vm.mock_web(r"catalog\.example/item/1", {"status": 200, "body": LISTING_BODY})
     direct_vm.mock_llm(r"RecallGuard decision evaluator", '{"verdict":"NOT_AFFECTED"}')
     with direct_vm.expect_revert("BUSINESS:DUPLICATE_ASSESSMENT"):
-        contract.request_assessment(listing_id, RECALL_URL, evidence_hash("Recall notice: XP-100 lot LOT-7 is affected."))
+        contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash("Recall notice: XP-100 lot LOT-7 is affected."))
     assert len(contract.get_assessment_ids()) == 1
 
 
-def test_same_url_with_new_committed_snapshot_is_a_distinct_notice_identity(direct_vm, direct_deploy):
+def test_same_logical_notice_with_new_committed_snapshot_keeps_notice_identity(direct_vm, direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
     listing_id = setup_listing(contract)
     first = request_one(contract, direct_vm, listing_id, verdict="NOT_AFFECTED", recall_url=RECALL_URL)
     second = request_one(contract, direct_vm, listing_id, verdict="INCONCLUSIVE", recall_url=RECALL_URL, recall_body="Updated notice bytes")
-    assert first.notice_id != second.notice_id
+    assert first.notice_id == second.notice_id
+    assert first.snapshot_id != second.snapshot_id
     assert len(contract.get_listing_assessments(listing_id)) == 2
     assert contract.get_listing(listing_id).state == "REVIEW_REQUIRED"
 
@@ -125,3 +139,44 @@ def test_other_listing_history_does_not_affect_aggregate(direct_vm, direct_deplo
     request_one(contract, direct_vm, second_listing, verdict="AFFECTED", recall_url="https://recalls.example.gov/notice/2", recall_body="Affected second")
     assert contract.get_listing(first_listing).state == "CLEARED"
     assert contract.get_listing(second_listing).state == "BLOCKED"
+
+
+def test_no_assessments_is_unassessed(direct_deploy):
+    contract = deploy_recall_guard(direct_deploy)
+    listing_id = setup_listing(contract)
+    assert contract.get_listing(listing_id).state == "UNASSESSED"
+
+
+def test_affected_then_not_affected_is_blocked(direct_vm, direct_deploy):
+    contract = deploy_recall_guard(direct_deploy)
+    listing_id = setup_listing(contract)
+    assess_sequence(contract, direct_vm, listing_id, [("AFFECTED", "affected first"), ("NOT_AFFECTED", "clear second")])
+    assert contract.get_listing(listing_id).state == "BLOCKED"
+
+
+def test_not_affected_then_affected_is_blocked(direct_vm, direct_deploy):
+    contract = deploy_recall_guard(direct_deploy)
+    listing_id = setup_listing(contract)
+    assess_sequence(contract, direct_vm, listing_id, [("NOT_AFFECTED", "clear first"), ("AFFECTED", "affected second")])
+    assert contract.get_listing(listing_id).state == "BLOCKED"
+
+
+def test_inconclusive_then_not_affected_is_review_required(direct_vm, direct_deploy):
+    contract = deploy_recall_guard(direct_deploy)
+    listing_id = setup_listing(contract)
+    assess_sequence(contract, direct_vm, listing_id, [("INCONCLUSIVE", "unclear first"), ("NOT_AFFECTED", "clear second")])
+    assert contract.get_listing(listing_id).state == "REVIEW_REQUIRED"
+
+
+def test_not_affected_then_inconclusive_is_review_required(direct_vm, direct_deploy):
+    contract = deploy_recall_guard(direct_deploy)
+    listing_id = setup_listing(contract)
+    assess_sequence(contract, direct_vm, listing_id, [("NOT_AFFECTED", "clear first"), ("INCONCLUSIVE", "unclear second")])
+    assert contract.get_listing(listing_id).state == "REVIEW_REQUIRED"
+
+
+def test_multiple_not_affected_are_cleared_in_any_append_order(direct_vm, direct_deploy):
+    contract = deploy_recall_guard(direct_deploy)
+    listing_id = setup_listing(contract)
+    assess_sequence(contract, direct_vm, listing_id, [("NOT_AFFECTED", "clear one"), ("NOT_AFFECTED", "clear two"), ("NOT_AFFECTED", "clear three")])
+    assert contract.get_listing(listing_id).state == "CLEARED"

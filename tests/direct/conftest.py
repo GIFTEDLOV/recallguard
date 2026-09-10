@@ -58,3 +58,8 @@ def listing_args_for(
         evidence_url,
         evidence_hash(evidence_body),
     ]
+
+
+def notice_reference_for(recall_url: str) -> str:
+    """Test helper mirroring an authority-issued reference, not URL identity."""
+    return "NOTICE-" + recall_url.rstrip("/").split("/")[-1].split("?")[0].upper()

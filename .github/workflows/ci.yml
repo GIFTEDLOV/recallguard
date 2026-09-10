@@ -42,9 +42,13 @@ jobs:
         shell: bash
         run: |
           grep -Fq '6b1e595b98eaf4eaab2e98b97176dfb3b796ed43788884ee22ec05c93e9bdc6f' docs/V1_FREEZE.md
-          grep -Fq 'v2-stable-source-identity' contracts/recall_guard.py
+          grep -Fq 'v2-stable-marketplace-reference' contracts/recall_guard.py
+          grep -Fq 'v2-authority-notice-reference' contracts/recall_guard.py
           grep -Fq 'STATE_UNASSESSED' contracts/recall_guard.py
           grep -Fq 'get_listing_assessments' contracts/recall_guard.py
+          grep -Fq '"recall_domains": ["cpsc.gov"]' config/v2_source_policy.json
+          grep -Fq '"marketplace_domains": ["amazon.com"]' config/v2_source_policy.json
+          grep -Fq '"listing_evidence_domains": ["amazon.com"]' config/v2_source_policy.json
 
       - name: Verify production configuration
         shell: bash

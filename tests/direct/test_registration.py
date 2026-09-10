@@ -8,7 +8,7 @@ def test_new_registration_is_unassessed(direct_vm, direct_deploy):
     contract.register_listing(*listing_args("https://catalog.example/item/1", "listing evidence"))
     listing = contract.get_listing(contract.get_listing_ids()[0])
     assert listing.state == "UNASSESSED"
-    assert listing.identity_version == "v2-stable-source-identity"
+    assert listing.identity_version == "v2-stable-marketplace-reference"
     assert listing.evidence_sha256 == evidence_hash("listing evidence")
 
 
@@ -156,4 +156,5 @@ def test_contract_info_exposes_v2_states_and_policies(direct_vm, direct_deploy):
     assert info["listing_state_enum"] == ["UNASSESSED", "CLEARED", "REVIEW_REQUIRED", "BLOCKED"]
     assert info["authorized_marketplace_domains"] == ["market.example"]
     assert info["authorized_listing_evidence_domains"] == ["catalog.example"]
-    assert info["duplicate_notice_policy"] == "REJECT_SAME_LISTING_AND_NOTICE_ID"
+    assert info["source_policy_version"] == "v2-rc-2026-09-10"
+    assert info["duplicate_notice_policy"] == "REJECT_SAME_LISTING_AND_SNAPSHOT_ID"

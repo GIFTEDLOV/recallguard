@@ -5,6 +5,7 @@ const stages: Array<{ key: TransactionStage; label: string }> = [
   { key: "PRECONDITION_READ", label: "Preparing assessment" },
   { key: "TRANSACTION_SIGNED", label: "Transaction signed" },
   { key: "SUBMISSION_SENT", label: "Submission sent" },
+  { key: "TRANSACTION_ACCEPTED", label: "Accepted by network" },
   { key: "HASH_PERSISTED", label: "Hash persisted" },
   { key: "FINALITY_PENDING", label: "Waiting for finality" },
   { key: "FINALIZED", label: "Finalized" },

@@ -5,7 +5,7 @@
 - Marketing narrative at `/`, with product promise, evidence boundary, and
   operator entry point.
 - Workspace dashboard at `/app`, with neutral unassessed workload, review
-  queue, blocked queue, and finalized assessment activity.
+  queue, blocked queue, and recorded assessment activity.
 - Searchable listing directory and registration flow.
 - Listing detail with canonical identity, mutable evidence snapshot, current
   state, consensus-existence indicator, full append-only history, and a visible
@@ -13,7 +13,7 @@
 - Challenge flow with source authority hint, evidence commitment helper,
   wallet/network checks, loading/error states, and recovery queue.
 - Assessment/attestation detail with requester, notice identity, recall
-  authority, verdict, finalized consequence, evidence commitments, and honest
+  authority, verdict, aggregate consequence, evidence commitments, and honest
   transaction-hash limitation.
 - Activity and attestation directories with empty, loading, and error states.
 
@@ -32,7 +32,7 @@ workflow.
 
 Responsive layout rules cover desktop, tablet, and mobile widths. Existing
 loading skeletons, empty states, error notices, wrong-network notices, wallet
-disconnect state, pending recovery, finalized execution, and failed execution
+  disconnect state, pending recovery, finalized execution, and failed execution
 are retained and updated to V2 language.
 
 ## Remaining quality limits
@@ -44,7 +44,7 @@ browser instance. A real browser pass remains a release-preflight task.
 
 The V2 contract does not store the originating transaction hash on the
 assessment record. The app keeps a versioned local confirmed-transaction index
-when it observed the finalized write and labels the value as app-observed; for
+when it observed the protocol-finalized write and labels the value as app-observed; for
 records created elsewhere it shows that the hash is unavailable in contract
 state. An indexer or future event field can attach that operational metadata
 without changing the verdict or state semantics.

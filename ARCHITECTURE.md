@@ -3,43 +3,52 @@
 RecallGuard evaluates whether a specific marketplace listing falls within the
 affected scope of an admissible product-recall notice. The GenLayer
 Intelligent Contract owns listing identity, evidence admissibility, semantic
-verdict, finalized assessment history, and the derived listing state.
+verdict, recorded assessment history, and the derived listing state. GenLayer
+protocol transaction finality remains an external transaction-lifecycle fact.
 
 ## Authoritative state model
 
 The only listing states are:
 
 - `UNASSESSED`: no successful consensus-backed assessment exists.
-- `CLEARED`: at least one finalized relevant assessment exists and all recorded
+- `CLEARED`: at least one recorded relevant assessment exists and all recorded
   relevant verdicts are `NOT_AFFECTED`.
 - `REVIEW_REQUIRED`: no `AFFECTED` assessment exists, but at least one
-  finalized relevant verdict is `INCONCLUSIVE`.
-- `BLOCKED`: at least one finalized relevant verdict is `AFFECTED`.
+  recorded relevant verdict is `INCONCLUSIVE`.
+- `BLOCKED`: at least one recorded relevant verdict is `AFFECTED`.
 
 Registration always creates `UNASSESSED`. It never creates `CLEARED`.
-State is derived from the complete finalized history with priority
+State is derived from the complete recorded history with priority
 `AFFECTED > INCONCLUSIVE > all NOT_AFFECTED`; a later favorable notice cannot
 erase an adverse or unresolved result.
 
 ## Stable listing identity
 
-The stable listing ID is the SHA-256 of this exact JSON array, after trimming,
-lowercasing, and collapsing whitespace in each part:
+The stable listing ID is the SHA-256 of this exact JSON array, after
+canonicalizing the host and trimming, lowercasing, and collapsing whitespace
+in the external identifier:
 
 ```text
-[marketplace_host, external_listing_id, product_id, manufacturer, model, serial_or_lot]
+[identity_version, marketplace_host, external_listing_id]
 ```
 
 The marketplace host must match the HTTPS listing URL and be in the configured
-marketplace allowlist. The external listing identifier is the marketplace's
-stable source identity. Product name, listing URL path, evidence URL, and
-evidence digest are deliberately separate mutable evidence-snapshot fields;
-changing a snapshot cannot create a new stable listing identity. This does not
-prove ownership, title, physical authenticity, legal authority, or that a
-marketplace will never recycle an external identifier.
+marketplace allowlist. Host case, a default `:443` port, and a trailing DNS dot
+cannot split identity. The external listing identifier is the marketplace's
+stable source reference. Product ID, name, manufacturer, model, serial/lot,
+listing URL, evidence URL, and evidence digest are stored metadata or snapshots
+and cannot create a new identity. The current policy treats each configured
+host as its own namespace. A marketplace that recycles an external ID must
+supply a stable generation in the external reference or receive a new
+identity-version policy; the contract does not guess reuse semantics.
 
-The canonical implementation is duplicated in
-`frontend/lib/canonical.ts`, with a cross-implementation vector test.
+This identity proves only that the contract saw the same canonical marketplace
+reference. It does not prove ownership, title, physical authenticity, listing
+availability, recall authority, or that the marketplace will never recycle an
+identifier.
+
+The independent TypeScript implementation is in `frontend/lib/canonical.ts`,
+with byte-for-byte vectors tested against the Python contract implementation.
 
 ## Source trust boundary
 
@@ -59,16 +68,19 @@ no business verdict and no authoritative state mutation.
 
 ## Permissionless assessment
 
-`request_assessment(listing_id, recall_url, recall_sha256)` is permissionless.
+`request_assessment(listing_id, recall_url, notice_reference, recall_sha256)` is permissionless.
 Owners and unrelated marketplace operators use the same path. `requested_by`
-is stored on the finalized assessment. There is no owner cancellation,
+is stored on the recorded assessment. There is no owner cancellation,
 overwrite, suppression, appeal, or administrator veto.
 
-Notice identity is the SHA-256 of the canonical recall URL plus the exact
-recall-body digest. Assessment identity is the SHA-256 of
-`[listing_id, notice_id]`. A duplicate listing/notice pair is rejected even if
-the listing's mutable evidence snapshot would later change; distinct notices
-remain independently auditable.
+Logical notice identity is the SHA-256 of
+`[notice_identity_version, authoritative_source_host, authority-issued_notice_reference]`.
+The canonical public URL and recall-body SHA are evidence-snapshot fields. A
+snapshot ID is the SHA-256 of `[notice_id, recall_sha256]`; assessment identity
+is the SHA-256 of `[listing_id, snapshot_id]`. An exact listing/notice/snapshot
+replay—including a URL query variation—is rejected. A new committed snapshot
+of the same logical notice may be recorded under the same `notice_id`, while
+all historical verdicts remain part of aggregate state.
 
 ## Public API
 
@@ -77,7 +89,7 @@ Writes:
 - `register_listing(marketplace_host, external_listing_id, product_id,
   product_name, manufacturer, model, serial_or_lot, listing_url, evidence_url,
   evidence_sha256)`
-- `request_assessment(listing_id, recall_url, recall_sha256)`
+- `request_assessment(listing_id, recall_url, notice_reference, recall_sha256)`
 
 Views:
 
@@ -85,8 +97,9 @@ Views:
 - `get_listing_assessments`, `get_attestation`, `contract_info`
 
 Views expose stable identity, owner, current derived state, assessment history,
-requester, notice identity, source authority semantics, verdict, finalized
-status, and evidence commitments.
+requester, logical notice identity, notice reference, snapshot identity, source
+authority semantics, verdict, recorded contract status, and evidence
+commitments.
 
 ## Frontend authority boundary
 
@@ -101,11 +114,20 @@ Every write uses:
 
 ```text
 precondition read -> broadcast once -> persist hash -> reconcile same hash
--> finalized -> verify execution -> read expected state
+-> protocol finalized -> verify execution -> read expected state
 ```
 
-Refresh, wallet disconnect, ambiguous RPC responses, pending status, failed
-execution, and wrong network do not trigger a blind rebroadcast.
+Refresh, wallet disconnect, ambiguous RPC responses, pending/accepted status,
+failed execution, and wrong network do not trigger a blind rebroadcast.
+
+## Authority and governance
+
+V2 has no owner/admin address and no post-deployment policy mutators. No address
+can change a source allowlist, delete a listing or assessment, overwrite a
+verdict, manually unblock a listing, or suppress a challenger. The allowlists
+are immutable constructor inputs, so deployment configuration is a governance
+boundary and must be frozen and reproduced from
+`config/v2_source_policy.json`.
 
 ## Release boundary
 

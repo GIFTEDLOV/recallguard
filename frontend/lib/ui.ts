@@ -13,6 +13,28 @@ export const verdictLabels: Record<Verdict, string> = {
   INCONCLUSIVE: "Inconclusive",
 };
 
+export type StateTone = "neutral" | "positive" | "caution" | "danger";
+
+export function toneForState(state: ListingState): StateTone {
+  if (state === "CLEARED") return "positive";
+  if (state === "REVIEW_REQUIRED") return "caution";
+  if (state === "BLOCKED") return "danger";
+  return "neutral";
+}
+
+export function stateExplanation(state: ListingState): string {
+  if (state === "UNASSESSED") return "No consensus assessment exists yet.";
+  if (state === "CLEARED") return "At least one consensus-backed assessment exists and all recorded relevant results are not affected.";
+  if (state === "REVIEW_REQUIRED") return "An inconclusive recorded assessment remains relevant.";
+  return "An affected recorded assessment remains relevant.";
+}
+
+export function challengePath(listingId: string): string {
+  return `/app/listings/${encodeURIComponent(listingId)}/check`;
+}
+
+export const challengeActionLabel = "Check against a recall";
+
 export function labelForState(state: ListingState): string {
   return stateLabels[state] || state;
 }
@@ -58,6 +80,9 @@ export function humanizeError(error: unknown): { title: string; message: string 
   }
   if (normalized.includes("pending") || normalized.includes("reconciliation")) {
     return { title: "Transaction needs reconciliation", message: "The same transaction hash was preserved. Reconcile it before considering the action complete; no new transaction was broadcast." };
+  }
+  if (normalized.includes("wallet") && (normalized.includes("disconnect") || normalized.includes("connect"))) {
+    return { title: "Wallet connection required", message: "Reconnect a wallet on the configured GenLayer network. No transaction was broadcast." };
   }
   if (normalized.includes("duplicate")) {
     return { title: "Already registered", message: "This record already exists on the contract." };

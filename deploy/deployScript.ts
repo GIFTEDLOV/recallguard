@@ -9,16 +9,26 @@ import {
 } from "genlayer-js/types";
 import { localnet } from "genlayer-js/chains";
 
-const recallDomains = (process.env.RECALLGUARD_RECALL_DOMAINS || "cpsc.gov,fda.gov,recalls-rappels.canada.ca")
-  .split(",")
-  .map((domain) => domain.trim())
-  .filter(Boolean);
+const policyPath = path.resolve(process.cwd(), "config/v2_source_policy.json");
+const sourcePolicy = JSON.parse(readFileSync(policyPath, "utf-8"));
+const productionPolicy = sourcePolicy.production;
+
+function frozenDomains(environmentName: string, domains: string[]): string[] {
+  const configured = process.env[environmentName];
+  const expected = domains.join(",");
+  if (configured && configured.split(",").map((domain) => domain.trim()).filter(Boolean).join(",") !== expected) {
+    throw new Error(`${environmentName} does not match frozen V2 source policy in ${policyPath}`);
+  }
+  return domains;
+}
+
+const recallDomains = frozenDomains("RECALLGUARD_RECALL_DOMAINS", productionPolicy.recall_domains);
 
 export default async function main(client: GenLayerClient<any>) {
   const filePath = path.resolve(process.cwd(), "contracts/recall_guard.py");
   const contractCode = new Uint8Array(readFileSync(filePath));
-  const marketplaceDomains = (process.env.RECALLGUARD_MARKETPLACE_DOMAINS || "amazon.com,ebay.com").split(",").map((domain) => domain.trim()).filter(Boolean);
-  const listingEvidenceDomains = (process.env.RECALLGUARD_LISTING_EVIDENCE_DOMAINS || "amazon.com,ebay.com,manufacturer.example").split(",").map((domain) => domain.trim()).filter(Boolean);
+  const marketplaceDomains = frozenDomains("RECALLGUARD_MARKETPLACE_DOMAINS", productionPolicy.marketplace_domains);
+  const listingEvidenceDomains = frozenDomains("RECALLGUARD_LISTING_EVIDENCE_DOMAINS", productionPolicy.listing_evidence_domains);
 
   await client.initializeConsensusSmartContract();
   const deployTransaction = await client.deployContract({

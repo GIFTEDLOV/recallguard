@@ -69,7 +69,7 @@ def test_malformed_or_invalid_model_output_fails_closed(direct_vm, direct_deploy
     contract, listing_id = setup_contract(direct_deploy, direct_vm)
     mock_full_assessment(direct_vm, raw_result)
     with direct_vm.expect_revert(expected):
-        contract.request_assessment(listing_id, RECALL_URL, evidence_hash(RECALL_BODY))
+        contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash(RECALL_BODY))
     assert len(contract.get_assessment_ids()) == 0
     assert contract.get_listing(listing_id).state == "UNASSESSED"
 
@@ -78,7 +78,7 @@ def test_model_output_with_extra_json_fields_is_not_a_verdict(direct_vm, direct_
     contract, listing_id = setup_contract(direct_deploy, direct_vm)
     mock_full_assessment(direct_vm, json.dumps({"verdict": "NOT_AFFECTED", "confidence": 1}))
     with direct_vm.expect_revert("SEMANTIC_MODEL:SCHEMA_REJECTED"):
-        contract.request_assessment(listing_id, RECALL_URL, evidence_hash(RECALL_BODY))
+        contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash(RECALL_BODY))
     assert contract.get_listing(listing_id).state == "UNASSESSED"
 
 
@@ -88,7 +88,7 @@ def test_consensus_failure_never_becomes_not_affected(direct_vm, direct_deploy):
     direct_vm.mock_web(r"catalog\.example/item/1", {"status": 200, "body": LISTING_BODY})
     direct_vm.mock_llm(r"RecallGuard decision evaluator", "timeout-or-disagreement")
     with direct_vm.expect_revert("SEMANTIC_MODEL:MALFORMED_OUTPUT"):
-        contract.request_assessment(listing_id, RECALL_URL, evidence_hash(RECALL_BODY))
+        contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash(RECALL_BODY))
     assert contract.get_listing(listing_id).state == "UNASSESSED"
 
 
@@ -96,7 +96,7 @@ def test_evidence_timeout_or_unavailability_is_not_a_business_verdict(direct_vm,
     contract, listing_id = setup_contract(direct_deploy, direct_vm)
     direct_vm.mock_web(r"recalls\.example\.gov/notice/1", {"status": 500, "body": "timeout"})
     with direct_vm.expect_revert("EVIDENCE_UNAVAILABLE:HTTP_STATUS"):
-        contract.request_assessment(listing_id, RECALL_URL, evidence_hash(RECALL_BODY))
+        contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash(RECALL_BODY))
     assert contract.get_listing(listing_id).state == "UNASSESSED"
     assert len(contract.get_assessment_ids()) == 0
 
@@ -105,7 +105,7 @@ def test_empty_evidence_is_integrity_failure_not_not_affected(direct_vm, direct_
     contract, listing_id = setup_contract(direct_deploy, direct_vm)
     direct_vm.mock_web(r"recalls\.example\.gov/notice/1", {"status": 200, "body": ""})
     with direct_vm.expect_revert("EVIDENCE_INTEGRITY:MALFORMED_EVIDENCE"):
-        contract.request_assessment(listing_id, RECALL_URL, evidence_hash(""))
+        contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash(""))
     assert contract.get_listing(listing_id).state == "UNASSESSED"
 
 
@@ -113,7 +113,7 @@ def test_failed_consensus_does_not_append_partial_assessment(direct_vm, direct_d
     contract, listing_id = setup_contract(direct_deploy, direct_vm)
     mock_full_assessment(direct_vm, "{\"verdict\":")
     with direct_vm.expect_revert("SEMANTIC_MODEL:MALFORMED_OUTPUT"):
-        contract.request_assessment(listing_id, RECALL_URL, evidence_hash(RECALL_BODY))
+        contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash(RECALL_BODY))
     assert len(contract.get_assessment_ids()) == 0
     assert contract.get_listing_assessments(listing_id) == []
 
@@ -122,14 +122,14 @@ def test_deterministic_verdict_parser_rejects_non_object(direct_vm, direct_deplo
     contract, listing_id = setup_contract(direct_deploy, direct_vm)
     mock_full_assessment(direct_vm, json.dumps(["AFFECTED"]))
     with direct_vm.expect_revert("SEMANTIC_MODEL:SCHEMA_REJECTED"):
-        contract.request_assessment(listing_id, RECALL_URL, evidence_hash(RECALL_BODY))
+        contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash(RECALL_BODY))
     assert contract.get_listing(listing_id).state == "UNASSESSED"
 
 
 def test_valid_strict_json_is_the_only_model_success_path(direct_vm, direct_deploy):
     contract, listing_id = setup_contract(direct_deploy, direct_vm)
     mock_full_assessment(direct_vm, json.dumps({"verdict": "NOT_AFFECTED"}))
-    contract.request_assessment(listing_id, RECALL_URL, evidence_hash(RECALL_BODY))
+    contract.request_assessment(listing_id, RECALL_URL, "NOTICE-1", evidence_hash(RECALL_BODY))
     assert contract.get_listing(listing_id).state == "CLEARED"
 
 

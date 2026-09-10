@@ -21,7 +21,7 @@ function entry(hash: string): PendingTransaction {
     method: "request_assessment",
     args: ["listing-1", "https://authority.example/recall", "a".repeat(64)],
     createdAt: "2026-09-07T00:00:00.000Z",
-    status: "PROVISIONAL",
+    status: "ACCEPTED",
     expected: { listingId: "listing-1", assessmentId: "assessment-1" },
   };
 }
@@ -77,5 +77,30 @@ describe("pending transaction persistence", () => {
       createdAt: "2026-09-07T00:00:00.000Z",
       expected: { listingId: "listing-1", assessmentId: "assessment-1" },
     }]);
+  });
+
+  it("keeps an accepted broadcast recoverable after a refresh", () => {
+    pendingTransactions.save(entry("0xaccepted"));
+    expect(pendingTransactions.list()[0].status).toBe("ACCEPTED");
+    expect(pendingTransactions.list()[0].hash).toBe("0xaccepted");
+  });
+
+  it("preserves reconciliation-required status instead of silently dropping the hash", () => {
+    pendingTransactions.save(entry("0xneeds-reconcile"));
+    pendingTransactions.update("0xneeds-reconcile", { status: "RECONCILIATION_REQUIRED" });
+    expect(pendingTransactions.list()[0].status).toBe("RECONCILIATION_REQUIRED");
+  });
+
+  it("keeps finalized execution failure visible for operator recovery", () => {
+    pendingTransactions.save(entry("0xfailed"));
+    pendingTransactions.update("0xfailed", { status: "FINALIZED_FAILURE" });
+    expect(pendingTransactions.list()[0]).toMatchObject({ hash: "0xfailed", status: "FINALIZED_FAILURE" });
+  });
+
+  it("makes confirmation idempotent for refresh and repeated reconciliation", () => {
+    pendingTransactions.save(entry("0xidempotent"));
+    pendingTransactions.confirm("0xidempotent");
+    pendingTransactions.confirm("0xidempotent");
+    expect(pendingTransactions.confirmed().filter((item) => item.hash === "0xidempotent")).toHaveLength(1);
   });
 });

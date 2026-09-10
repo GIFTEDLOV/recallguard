@@ -1,6 +1,7 @@
 # RecallGuard V2 adversarial design audit
 
-Status: design baseline recorded before V2 implementation.
+Status: hardened V2 release-candidate audit; findings are preserved as design
+decisions and test obligations.
 
 ## Scope and V1 boundary
 
@@ -35,20 +36,26 @@ as a trust-model finding, not as a copy or presentation issue.
 ### Listing identity
 
 An attacker can vary product name, listing URL, evidence URL, or evidence hash
-to obtain a fresh V1 listing ID. There is no explicit marketplace host plus
-external listing identifier binding. V2 will use a stable canonical tuple of
-marketplace host, marketplace listing identifier, product identifier,
-manufacturer, model, and serial/lot where supplied. The URL and evidence hash
-are stored evidence snapshots and are not part of the stable identity.
+to obtain a fresh V1 listing ID. V2 binds the explicit source namespace and
+external marketplace reference only: the exact canonical tuple is
+`[identity_version, marketplace_host, external_listing_id]`. Product ID,
+manufacturer, model, serial/lot, title, URL representation, and evidence SHA
+are stored metadata or snapshots and do not split the stable ID. Host case,
+default `:443`, and a trailing dot are canonicalized; query strings are not an
+identity key.
 
-The identity proves only that the contract saw the same canonical identifiers;
-it does not prove ownership, title, authenticity of the item, or that a
-marketplace will never recycle an external identifier.
+The configured host is the namespace. If a marketplace recycles an external
+ID, the operator must supply a stable generation in the external reference or
+the policy must move to a new identity version. The identity proves only that
+the contract saw the same source reference; it does not prove ownership, title,
+authenticity, listing availability, or that a marketplace will never recycle an
+identifier. See `docs/LISTING_IDENTITY.md` for the independent implementation
+and vectors.
 
 ### Initial state semantics
 
 V1 registration is `ACTIVE`, conflating existence with clearance. V2 registration
-must be `UNASSESSED`, and only a successful finalized `NOT_AFFECTED` assessment
+must be `UNASSESSED`, and only a successful recorded `NOT_AFFECTED` assessment
 can produce `CLEARED`.
 
 ### Assessment authorization and suppression
@@ -83,28 +90,34 @@ text in the evaluator prompt and accepts only a strict verdict enum.
 ### Repeated and conflicting notices
 
 V1 overwrites the listing with the latest mapped result and treats `BLOCKED` as
-terminal. V2 appends only successful finalized assessments, derives state from
+terminal. V2 appends only successful recorded assessments, derives state from
 the full relevant history, and gives priority `AFFECTED` > `INCONCLUSIVE` >
 `NOT_AFFECTED`. A favorable later result cannot clear a previous adverse or
-unresolved result. The notice identity is the hash of canonical recall URL plus
-the exact committed notice body digest; the same listing plus notice identity
-is rejected as a duplicate.
+unresolved result. The logical notice identity is the hash of
+`[notice_identity_version, authoritative_source_host, authority-issued
+notice_reference]`. Its canonical URL and body SHA are a separate evidence
+snapshot. The assessment identity binds the listing to that snapshot; an exact
+snapshot replay is rejected, while an explicitly updated snapshot of the same
+logical notice retains the same `notice_id`.
 
 ### State aggregation
 
-Only `FINALIZED` assessments are relevant. Failed fetches, failed parsing,
+Only `RECORDED` assessments are relevant. Failed fetches, failed parsing,
 validator disagreement, timeouts, and consensus failures produce no business
-verdict and no assessment or listing-state mutation. A finalized assessment's
+verdict and no assessment or listing-state mutation. A recorded assessment's
 `state_after` is the derived aggregate after appending that assessment, not a
-verdict-only replacement.
+verdict-only replacement. `RECORDED` is contract storage terminology; protocol
+transaction finality is established by the external GenLayer lifecycle.
 
 ### Duplicate checks and replay
 
-The assessment ID is deterministic from listing ID and notice identity. This
-prevents replay of the same notice against the same stable listing, even if a
-mutable listing evidence snapshot later changes. Different notices remain
-independently auditable. Registration rejects an already-used stable listing
-identity.
+The assessment ID is deterministic from listing ID and evidence snapshot ID.
+The snapshot ID is deterministic from logical notice ID and recall-body SHA.
+This prevents exact replay of the same snapshot against the same stable
+listing—including URL query changes—while allowing a new snapshot to be
+explicitly recorded under the same logical notice. Different authority
+namespaces and notice references remain independently auditable. Registration
+rejects an already-used stable listing identity.
 
 ### Finality and transaction recovery
 
@@ -137,9 +150,22 @@ assessment or change an aggregate state.
 4. Identity is stable and evidence snapshots are separate fields.
 5. Recall and listing sources have separate allowlists and the same bounded
    integrity pipeline.
-6. State is derived from all finalized assessments, with adverse and unresolved
+6. State is derived from all recorded assessments, with adverse and unresolved
    results taking priority over favorable results.
-7. No V2 deployment occurs in this phase.
+7. Contract storage status is `RECORDED`; protocol transaction finality is an
+   external lifecycle fact, not a contract field.
+8. The exact RC source policy is frozen in `config/v2_source_policy.json` and
+   remains gated on live retrieval proof.
+9. No V2 deployment occurs in this phase.
+
+### Authority and governance
+
+There is no owner/admin address and no write method for changing recall,
+marketplace, or listing-evidence allowlists. No address can delete listings or
+assessments, overwrite verdicts, manually unblock a listing, cancel a
+challenger's assessment, or suppress a third-party request. The constructor
+allowlists are immutable after deployment; the deployment script reads the
+committed source policy and rejects drift.
 
 ## Residual limitations to test and disclose
 

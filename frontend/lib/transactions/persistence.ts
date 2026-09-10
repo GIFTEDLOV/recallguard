@@ -1,4 +1,4 @@
-export type PendingStatus = "PROVISIONAL" | "RECONCILIATION_REQUIRED" | "FINALIZED_FAILURE";
+export type PendingStatus = "ACCEPTED" | "RECONCILIATION_REQUIRED" | "FINALIZED_FAILURE";
 
 export interface PendingExpectation {
   listingId?: string;
@@ -30,7 +30,7 @@ function read(): PendingTransaction[] {
     const entries = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]") as Array<Partial<PendingTransaction>>;
     return entries.map((entry) => ({
       ...entry,
-      status: entry.status || "PROVISIONAL",
+      status: entry.status || "ACCEPTED",
     })) as PendingTransaction[];
   } catch {
     return [];
