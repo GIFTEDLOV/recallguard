@@ -7,6 +7,30 @@ that validators retrieved; consensus makes the semantic adjudication
 reproducible. None of those facts alone authenticates a publisher, proves
 legal authority, proves ownership of a listing, or makes a page immutable.
 
+## CPSC source topology
+
+The authority is the United States Consumer Product Safety Commission (CPSC).
+The CPSC public recall pages are on `cpsc.gov`. CPSC also documents its
+machine-readable Recall Data API at `saferproducts.gov`, under the specific
+`/RestWebServices/Recall` path. That second property is admitted only for the
+CPSC-operated API purpose; it is not a generic `saferproducts.gov` content
+allowlist.
+
+The current contract accepts only host-level recall domains, so the active RC
+deployment allowlist remains `cpsc.gov`. Do not append `saferproducts.gov` to
+that list without first adding an explicit host-plus-path source-class check.
+The smallest next source-boundary change is to admit exactly
+`https://www.saferproducts.gov/RestWebServices/Recall` for structured CPSC
+records and to reject other saferproducts.gov paths.
+
+The live probe found that `https://www.cpsc.gov/Recalls` returned valid UTF-8
+with status 200 but was 283,575 bytes, exceeding the contract's 24,000-byte
+evidence cap. The structured API query for RecallNumber `26741` returned one
+JSON record, 3,839 bytes, and the same body and decision-relevant fact hash in
+all five independent observations. This qualifies the API transport/fact
+shape, but not current-contract admission; no contract or production policy
+was changed to activate it in this stop-gated phase.
+
 ## Exact production values
 
 The reproducible machine-readable policy is
@@ -30,6 +54,10 @@ the deployment arguments.
 | --- | --- | --- | --- | --- | --- |
 | `cpsc.gov` | U.S. Consumer Product Safety Commission | U.S. consumer-product recalls and product-safety warnings | Federal authority publishes the recall record on its controlled government domain | `https://www.cpsc.gov/Recalls` | Pages and remedies are mutable; scope is not universal; allowlisting is not a signature |
 
+The structured CPSC API is documented in the topology section above and
+remains a candidate until the contract can bind the host to its exact API path
+and, preferably, a canonical decision-relevant field envelope.
+
 No FDA, Health Canada, manufacturer, or third-party recall domain is included
 in the V2 RC policy. Those can be proposed only with a separately reviewed
 scope, fixture, and retrieval proof.
@@ -46,9 +74,13 @@ must have the declared marketplace host. Arbitrary HTTPS sources are rejected.
 
 ## Retrieval gate
 
-The values are frozen in the RC artifact, but the live retrieval gate remains
-open until the exact fixtures pass GenVM retrieval and multi-validator
-agreement. The fixture URLs and policy values must not be changed after seeing
-validator votes. If Amazon presents an anti-bot or consent response, deployment
-is blocked and the policy must be reviewed as a new release—not silently
-broadened.
+The values are frozen in the RC artifact, but the live retrieval gate is failed
+for the current production source set. Amazon returned status 200 while
+alternating between a CAPTCHA/"Continue shopping" response and a large dynamic
+HTML page; it did not provide a stable product record across five observations.
+Deployment is blocked and the policy must be reviewed as a new release, not
+silently broadened.
+
+The complete read-only observation table is in
+[`docs/V2_SOURCE_QUALIFICATION.md`](V2_SOURCE_QUALIFICATION.md). The fixture
+URLs and policy values must not be changed after observing validator results.

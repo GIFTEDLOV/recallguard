@@ -1,11 +1,50 @@
 {
   "schema": "recallguard.v2.source-policy",
   "policy_version": "v2-rc-2026-09-10",
-  "status": "frozen-values-live-retrieval-gate-open",
+  "status": "frozen-values-live-retrieval-gate-open-source-qualification-failed",
   "production": {
     "recall_domains": ["cpsc.gov"],
     "marketplace_domains": ["amazon.com"],
     "listing_evidence_domains": ["amazon.com"]
+  },
+  "cpsc_source_topology": {
+    "authority": "United States Consumer Product Safety Commission",
+    "authorized_web_properties": [
+      {
+        "host": "cpsc.gov",
+        "purpose": "Official CPSC public recall pages",
+        "path_prefix": "/Recalls",
+        "status": "transport-qualified-but-contract-evidence-cap-failed"
+      },
+      {
+        "host": "saferproducts.gov",
+        "purpose": "CPSC Recall Data API only",
+        "path_prefix": "/RestWebServices/Recall",
+        "status": "transport-qualified-contract-path-boundary-required",
+        "not_generic_domain_allowlist": true
+      }
+    ],
+    "structured_api_probe": {
+      "url": "https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallNumber=26741",
+      "record_count": 1,
+      "stable_fields": [
+        "RecallID",
+        "RecallNumber",
+        "RecallDate",
+        "Title",
+        "Description",
+        "URL",
+        "Products",
+        "Manufacturers",
+        "ProductUPCs",
+        "Hazards",
+        "Remedies"
+      ],
+      "observed_response_bytes": 3839,
+      "observed_response_sha256": "387b1edf29c18776b21b74e5f836d119c91e7aca0c3fb95e86f0781dbe22fcff",
+      "observed_facts_sha256": "e1cd2fde3d45b14c3cfd6b65843bd345be149e4b3355f931747373aa7a62e576",
+      "five_validator_observations": "5/5 status 200, UTF-8, body hash equal, stable facts equal"
+    }
   },
   "recall_authorities": [
     {
@@ -59,5 +98,5 @@
       ]
     }
   ],
-  "deployment_gate": "Do not deploy unless the exact domains above and the frozen fixtures pass a multi-validator retrieval probe; no environment override is accepted."
+  "deployment_gate": "Do not deploy unless the exact active domains above and the frozen fixtures pass a multi-validator retrieval probe. The saferproducts.gov property is not active deployment policy until the contract enforces the /RestWebServices/Recall CPSC API path-purpose boundary. No environment override is accepted."
 }
