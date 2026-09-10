@@ -3,10 +3,10 @@
 Status: source gate recorded; no blockchain transaction, application write,
 deployment, or semantic fixture execution was performed.
 
-The CPSC probe was run five times as separate `python tools/probe_cpsc_source.py`
-observations through the installed GLSim live-I/O HTTP handler with network
-access enabled. This is a GenVM web-runtime retrieval probe, not protocol
-consensus or finality.
+The final-runner CPSC probe was run five times as separate
+`python tools/probe_cpsc_source.py` observations through the installed
+GLSim live-I/O HTTP handler with network access enabled. This is a GenVM
+web-runtime retrieval probe, not protocol consensus or finality.
 
 ## CPSC authority and endpoint
 
@@ -24,11 +24,11 @@ All five observations had the following stable transport and shape result:
 
 | Observation | HTTP | Response type | Bytes | Raw SHA-256 | UTF-8 | Exact records | Stable fact SHA-256 | Effective host | Redirects | Latency ms |
 | --- | ---: | --- | ---: | --- | --- | ---: | --- | --- | --- | ---: |
-| 1 | 200 | `application/json; charset=utf-8` | 3839 | `387b1edf29c18776b21b74e5f836d119c91e7aca0c3fb95e86f0781dbe22fcff` | yes | 1 | `af1d69a4b450a352a404f86bde7c602a2b15435139a48570e25c6a814ee0d927` | `www.saferproducts.gov` | not observable / none reported | 2209.1 |
-| 2 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1857.3 |
-| 3 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1749.5 |
-| 4 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1678.2 |
-| 5 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1458.5 |
+| 1 | 200 | `application/json; charset=utf-8` | 3839 | `387b1edf29c18776b21b74e5f836d119c91e7aca0c3fb95e86f0781dbe22fcff` | yes | 1 | `af1d69a4b450a352a404f86bde7c602a2b15435139a48570e25c6a814ee0d927` | `www.saferproducts.gov` | not observable / none reported | 2052.1 |
+| 2 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1307.3 |
+| 3 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1301.6 |
+| 4 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1326.8 |
+| 5 | 200 | `application/json; charset=utf-8` | 3839 | same | yes | 1 | same | same | not observable / none reported | 1543.5 |
 
 The exact record contained `RecallID=10940`, `RecallNumber=26741`, and the
 decision fields required by the adapter. The canonical extractor includes only
@@ -61,13 +61,16 @@ claim is used by the contract.
 
 ## Decision
 
-- `CPSC_SOURCE_QUALIFIED`: **NOT RELEASE-QUALIFIED YET**. The fixed CPSC API
-  passes the five-observation transport/extraction gate, but the required
-  independent-validator proof has not run on a coherent current v0.6 family.
+- `CPSC_SOURCE_QUALIFIED`: **YES for the final-runner five-observation
+  transport/extraction gate; not a substitute for the pending multi-validator
+  semantic proof**. The fixed CPSC API passed HTTP, exact-record,
+  canonical-facts, and snapshot-hash requirements 5/5.
 - `CPSC_API_QUALIFIED`: YES for the five-observation non-write retrieval gate.
 - `AMAZON_SOURCE_QUALIFIED`: NO.
 - `LISTING_EVIDENCE_SOURCE_QUALIFIED`: NO; V2 has no listing-evidence
   consensus source class.
-- `FIXTURE_A/B/C`: not run. The coherent v0.6 RC toolchain and measured fee
-  profile are not installed, and Amazon's failure blocks any marketplace-based
-  live proof. No Bradbury transaction was broadcast.
+- `FIXTURE_A/B/C`: not run. The coherent v0.6 Python/JS/CLI family is pinned,
+  but local Studio/GLSim execution stalls before a transaction receipt and no
+  measured fee profile is available. Amazon's failure is not a blocker to the
+  CPSC-only contract path because Amazon is not consensus evidence. No
+  Bradbury transaction was broadcast.

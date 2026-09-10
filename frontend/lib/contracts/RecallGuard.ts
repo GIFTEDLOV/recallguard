@@ -2,6 +2,9 @@ import { createGenLayerClient, CONTRACT_ADDRESS, GENLAYER_RPC_URL } from "../gen
 import { listingId } from "../canonical";
 import { pendingTransactions, type PendingExpectation, type PendingTransaction } from "../transactions/persistence";
 import type { Assessment, ContractInfo, Listing } from "../types";
+import { isSuccessful as sdkIsSuccessful } from "genlayer-js";
+import { TransactionHashVariant, type GenLayerTransaction } from "genlayer-js/types";
+import { loadFeeProfile, profileEntry } from "../fees";
 
 type Receipt = Record<string, any>;
 
@@ -40,18 +43,16 @@ function plain(value: unknown): any {
 function statusName(receipt: Receipt): string {
   if (typeof receipt.statusName === "string") return receipt.statusName.toUpperCase();
   if (typeof receipt.status === "string") return receipt.status.toUpperCase();
-  // Compatibility with the installed pre-v2 SDK only. The numeric mapping is
-  // not used as a business state and is never persisted by the contract.
-  if (receipt.status === 5) return "ACCEPTED";
-  if (receipt.status === 7) return "FINALIZED";
   return "";
 }
 
-/** Mirrors the official GenLayer success rule: lifecycle status plus execution result. */
+/** Uses the official genlayer-js v2 success predicate. */
 export function isSuccessfulTransaction(receipt: Receipt): boolean {
-  const lifecycle = statusName(receipt);
-  const execution = String(receipt.txExecutionResultName || receipt.executionResultName || "").toUpperCase();
-  return (lifecycle === "ACCEPTED" || lifecycle === "FINALIZED") && execution === "FINISHED_WITH_RETURN";
+  if (!receipt || typeof receipt !== "object") return false;
+  // `genlayer-js` also considers ACCEPTED + return a successful protocol
+  // execution. Application completion is stricter: state-changing UI actions
+  // are durable only after the required FINALIZED lifecycle state.
+  return isFinalized(receipt) && sdkIsSuccessful(receipt as GenLayerTransaction);
 }
 
 function isFinalized(receipt: Receipt): boolean {
@@ -91,34 +92,34 @@ export class RecallGuardContract {
   }
 
   async getListingIds(): Promise<string[]> {
-    const result = await this.client.readContract({ address: this.address, functionName: "get_listing_ids", args: [] });
+    const result = await this.client.readContract({ address: this.address, functionName: "get_listing_ids", args: [], transactionHashVariant: TransactionHashVariant.LATEST_FINAL });
     return Array.from(plain(result) || [], String);
   }
 
   async getAssessmentIds(): Promise<string[]> {
-    const result = await this.client.readContract({ address: this.address, functionName: "get_assessment_ids", args: [] });
+    const result = await this.client.readContract({ address: this.address, functionName: "get_assessment_ids", args: [], transactionHashVariant: TransactionHashVariant.LATEST_FINAL });
     return Array.from(plain(result) || [], String);
   }
 
   async getListing(id: string): Promise<Listing> {
-    return plain(await this.client.readContract({ address: this.address, functionName: "get_listing", args: [id] })) as Listing;
+    return plain(await this.client.readContract({ address: this.address, functionName: "get_listing", args: [id], transactionHashVariant: TransactionHashVariant.LATEST_FINAL })) as Listing;
   }
 
   async getAssessment(id: string): Promise<Assessment> {
-    return plain(await this.client.readContract({ address: this.address, functionName: "get_assessment", args: [id] })) as Assessment;
+    return plain(await this.client.readContract({ address: this.address, functionName: "get_assessment", args: [id], transactionHashVariant: TransactionHashVariant.LATEST_FINAL })) as Assessment;
   }
 
   async getListingAssessments(id: string): Promise<string[]> {
-    const result = await this.client.readContract({ address: this.address, functionName: "get_listing_assessments", args: [id] });
+    const result = await this.client.readContract({ address: this.address, functionName: "get_listing_assessments", args: [id], transactionHashVariant: TransactionHashVariant.LATEST_FINAL });
     return Array.from(plain(result) || [], String);
   }
 
   async getAttestation(id: string): Promise<Assessment> {
-    return plain(await this.client.readContract({ address: this.address, functionName: "get_attestation", args: [id] })) as Assessment;
+    return plain(await this.client.readContract({ address: this.address, functionName: "get_attestation", args: [id], transactionHashVariant: TransactionHashVariant.LATEST_FINAL })) as Assessment;
   }
 
   async getContractInfo(): Promise<ContractInfo> {
-    return plain(await this.client.readContract({ address: this.address, functionName: "contract_info", args: [] })) as ContractInfo;
+    return plain(await this.client.readContract({ address: this.address, functionName: "contract_info", args: [], transactionHashVariant: TransactionHashVariant.LATEST_FINAL })) as ContractInfo;
   }
 
   async registerListing(input: {
@@ -218,23 +219,22 @@ export class RecallGuardContract {
   }
 
   private async waitForFinalization(hash: string): Promise<Receipt> {
-    if (typeof this.client.waitForFinalization === "function") {
-      return plain(await this.client.waitForFinalization({ hash }));
-    }
-    // Compatibility path for the installed pre-v2 client. The release gate
-    // still requires the v2 SDK and fee estimator before enabling writes.
-    return plain(await this.client.waitForTransactionReceipt({ hash, status: "FINALIZED", retries: 120, interval: 5000 }));
+    return plain(await this.client.waitForFinalization({ hash, retries: 120, interval: 5000, fullTransaction: true }));
   }
 
-  private async quoteFees(method: string, args: unknown[]): Promise<Record<string, unknown>> {
-    if (typeof this.client.estimateTransactionFeesForWrite !== "function") {
-      throw new FeePolicyUnavailableError();
-    }
-    const estimate = await this.client.estimateTransactionFeesForWrite({
-      address: this.address,
-      functionName: method,
-      args,
-      value: BigInt(0),
+  private async quoteFees(method: string): Promise<Record<string, unknown>> {
+    const profile = await loadFeeProfile();
+    const entry = profileEntry(profile, method as "register_listing" | "request_assessment");
+    if (typeof this.client.estimateTransactionFees !== "function") throw new FeePolicyUnavailableError();
+    const appealRounds = Number(entry.appealRounds ?? 1);
+    const rotationsPerRound = BigInt(entry.rotationsPerRound);
+    const estimate = await this.client.estimateTransactionFees({
+      leaderTimeunitsAllocation: BigInt(entry.leaderTimeunitsAllocation),
+      validatorTimeunitsAllocation: BigInt(entry.validatorTimeunitsAllocation),
+      executionBudgetPerRound: BigInt(entry.executionBudgetPerRound),
+      totalMessageFees: BigInt(entry.totalMessageFees ?? "0"),
+      appealRounds: BigInt(appealRounds),
+      rotations: Array.from({ length: appealRounds + 1 }, () => rotationsPerRound),
     });
     if (!estimate || !estimate.distribution || estimate.feeValue === undefined) {
       throw new FeePolicyUnavailableError();
@@ -249,7 +249,7 @@ export class RecallGuardContract {
     onProgress?.({ stage: "PRECONDITION_READ", detail: "Network and contract preconditions satisfied" });
     let quote: Record<string, unknown>;
     try {
-      quote = await this.quoteFees(method, args);
+      quote = await this.quoteFees(method);
     } catch (error) {
       onProgress?.({ stage: "FAILED", detail: String(error) });
       throw error;
@@ -267,7 +267,7 @@ export class RecallGuardContract {
       });
     } catch (error) {
       onProgress?.({ stage: "FAILED", detail: String(error) });
-      throw new Error(`Broadcast did not return a GenLayer transaction ID: ${String(error)}`);
+      throw new SubmissionRejectedError(error);
     }
     onProgress?.({ stage: "SUBMISSION_SENT", hash });
     // Persist before any polling, rendering, or readback. This is the point
@@ -296,6 +296,20 @@ export class RecallGuardContract {
       onProgress?.({ stage: "FAILED", hash, detail: String(error) });
       throw new PendingTransactionError(hash, error);
     }
+  }
+}
+
+export class SubmissionRejectedError extends Error {
+  public readonly data: unknown;
+  public readonly code: unknown;
+
+  constructor(cause: unknown) {
+    const record = cause && typeof cause === "object" ? cause as Record<string, unknown> : {};
+    const message = cause instanceof Error ? cause.message : String(cause);
+    super(`Broadcast did not return a GenLayer transaction ID: ${message}`, { cause });
+    this.name = "SubmissionRejectedError";
+    this.data = record.data;
+    this.code = record.code;
   }
 }
 

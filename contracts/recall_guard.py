@@ -18,6 +18,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from typing import Any, Callable, cast
 
 from genlayer import *
 
@@ -125,7 +126,7 @@ class RecallGuard(gl.Contract):
         if not admitted:
             self._fail("EXPECTED:CPSC_API_POLICY_REQUIRED")
 
-    def _validate_domain_config(self, domain: str):
+    def _validate_domain_config(self, domain: Any):
         if not isinstance(domain, str) or len(domain) == 0 or len(domain) > MAX_FIELD_LENGTH:
             self._fail("EXPECTED:INVALID_DOMAIN_POLICY")
         if domain != domain.lower() or ":" in domain or "/" in domain or "@" in domain or "|" in domain or "\x00" in domain:
@@ -133,7 +134,7 @@ class RecallGuard(gl.Contract):
         if "." not in domain or domain.startswith(".") or domain.endswith("."):
             self._fail("EXPECTED:INVALID_DOMAIN_POLICY")
 
-    def _validate_text(self, value: str, required: bool = True):
+    def _validate_text(self, value: Any, required: bool = True):
         if not isinstance(value, str):
             self._fail("EXPECTED:INVALID_TEXT")
         if required and len(value) == 0:
@@ -177,7 +178,7 @@ class RecallGuard(gl.Contract):
             raw_host = raw_host[:-1]
         return raw_host
 
-    def _canonical_https_url(self, url: str) -> str:
+    def _canonical_https_url(self, url: Any) -> str:
         if not isinstance(url, str) or len(url) == 0 or len(url) > MAX_URL_LENGTH:
             self._fail("EXPECTED:INVALID_URL")
         if not url.startswith("https://"):
@@ -216,7 +217,12 @@ class RecallGuard(gl.Contract):
         canonical = self._canonical_listing_identity(marketplace_host, external_listing_id)
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    def _normalize_recall_identifier(self, recall_identifier: str) -> str:
+    def _validate_id(self, value: Any) -> str:
+        if not isinstance(value, str) or len(value) == 0 or len(value) > MAX_ID_LENGTH:
+            self._fail("EXPECTED:INVALID_ID")
+        return value
+
+    def _normalize_recall_identifier(self, recall_identifier: Any) -> str:
         if not isinstance(recall_identifier, str):
             self._fail("EXPECTED:INVALID_RECALL_IDENTIFIER")
         if "\x00" in recall_identifier or "\r" in recall_identifier or "\n" in recall_identifier or "\t" in recall_identifier:
@@ -240,7 +246,7 @@ class RecallGuard(gl.Contract):
         )
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    def _snapshot_id(self, canonical_facts: dict) -> str:
+    def _snapshot_id(self, canonical_facts: dict[str, Any]) -> str:
         canonical = json.dumps(
             canonical_facts,
             ensure_ascii=False,
@@ -253,19 +259,23 @@ class RecallGuard(gl.Contract):
         canonical = json.dumps([listing_id, notice_id, snapshot_id], separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    def _bounded_string(self, value, field: str) -> str:
+    def _bounded_string(self, value: Any, field: str) -> str:
         if not isinstance(value, str) or len(value) > MAX_FIELD_LENGTH:
             raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_" + field)
         return value
 
-    def _bounded_collection(self, value, field: str) -> list:
-        if not isinstance(value, list) or len(value) > 256:
+    def _bounded_collection(self, value: Any, field: str) -> list[Any]:
+        if not isinstance(value, list):
             raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_" + field)
-        return value
+        collection = cast(list[Any], value)
+        if len(collection) > 256:
+            raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_" + field)
+        return collection
 
-    def _canonical_cpsc_record(self, record: dict, requested_identifier: str) -> dict:
+    def _canonical_cpsc_record(self, record: Any, requested_identifier: str) -> dict[str, Any]:
         if not isinstance(record, dict):
             raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_RECORD")
+        record = cast(dict[str, Any], record)
         required = ["RecallID", "RecallNumber", "RecallDate", "Title", "Description", "Products", "Manufacturers", "ProductUPCs", "Hazards", "Remedies"]
         for field in required:
             if field not in record:
@@ -281,10 +291,11 @@ class RecallGuard(gl.Contract):
         if len(recall_date) == 0 or len(title) == 0 or len(description) == 0:
             raise gl.vm.UserError(ERROR_SOURCE + "EMPTY_DECISION_FIELD")
 
-        products = []
+        products: list[dict[str, str]] = []
         for product in self._bounded_collection(record["Products"], "Products"):
             if not isinstance(product, dict):
                 raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_Product")
+            product = cast(dict[str, Any], product)
             for field in ["Name", "Description", "Model", "Type"]:
                 if field not in product:
                     raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_" + field)
@@ -294,31 +305,35 @@ class RecallGuard(gl.Contract):
                 "model": self._bounded_string(product.get("Model", ""), "ProductModel").strip(),
                 "type": self._bounded_string(product.get("Type", ""), "ProductType").strip(),
             })
-        manufacturers = []
+        manufacturers: list[dict[str, str]] = []
         for manufacturer in self._bounded_collection(record["Manufacturers"], "Manufacturers"):
             if not isinstance(manufacturer, dict):
                 raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_Manufacturer")
+            manufacturer = cast(dict[str, Any], manufacturer)
             if "Name" not in manufacturer:
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_ManufacturerName")
             manufacturers.append({"name": self._bounded_string(manufacturer.get("Name", ""), "ManufacturerName").strip()})
-        upcs = []
+        upcs: list[str] = []
         for product_upc in self._bounded_collection(record["ProductUPCs"], "ProductUPCs"):
             if not isinstance(product_upc, dict):
                 raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_ProductUPC")
+            product_upc = cast(dict[str, Any], product_upc)
             if "UPC" not in product_upc:
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_UPC")
             upcs.append(self._bounded_string(product_upc.get("UPC", ""), "UPC").strip())
-        hazards = []
+        hazards: list[str] = []
         for hazard in self._bounded_collection(record["Hazards"], "Hazards"):
             if not isinstance(hazard, dict):
                 raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_Hazard")
+            hazard = cast(dict[str, Any], hazard)
             if "Name" not in hazard:
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_HazardName")
             hazards.append(self._bounded_string(hazard.get("Name", ""), "HazardName").strip())
-        remedies = []
+        remedies: list[str] = []
         for remedy in self._bounded_collection(record["Remedies"], "Remedies"):
             if not isinstance(remedy, dict):
                 raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_Remedy")
+            remedy = cast(dict[str, Any], remedy)
             if "Name" not in remedy:
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_RemedyName")
             remedies.append(self._bounded_string(remedy.get("Name", ""), "RemedyName").strip())
@@ -341,7 +356,7 @@ class RecallGuard(gl.Contract):
             "remedies": remedies,
         }
 
-    def _parse_cpsc_response(self, response, recall_identifier: str) -> dict:
+    def _parse_cpsc_response(self, response: Any, recall_identifier: str) -> dict[str, Any]:
         if response.status != 200:
             if response.status >= 500:
                 raise gl.vm.UserError(ERROR_TRANSIENT + "CPSC_HTTP_5XX")
@@ -368,10 +383,12 @@ class RecallGuard(gl.Contract):
             raise gl.vm.UserError(ERROR_SOURCE + "CPSC_INVALID_JSON")
         if not isinstance(parsed, list):
             raise gl.vm.UserError(ERROR_SOURCE + "CPSC_EXPECTED_ARRAY")
-        exact_records = []
+        parsed = cast(list[Any], parsed)
+        exact_records: list[dict[str, Any]] = []
         for record in parsed:
             if not isinstance(record, dict):
                 raise gl.vm.UserError(ERROR_SOURCE + "CPSC_INVALID_RECORD_LIST")
+            record = cast(dict[str, Any], record)
             raw_number = record.get("RecallNumber")
             if isinstance(raw_number, str) and raw_number.strip().upper() == recall_identifier:
                 exact_records.append(record)
@@ -381,7 +398,7 @@ class RecallGuard(gl.Contract):
             raise gl.vm.UserError(ERROR_SOURCE + "CPSC_EXACT_RECORD_AMBIGUOUS")
         return self._canonical_cpsc_record(exact_records[0], recall_identifier)
 
-    def _decision_prompt(self, canonical_facts: dict, listing: Listing) -> str:
+    def _decision_prompt(self, canonical_facts: dict[str, Any], listing: Listing) -> str:
         listing_facts = {
             "product_id": listing.product_id,
             "product_name": listing.product_name,
@@ -408,14 +425,17 @@ Do not add reasoning, confidence, sources, or any other field.
 </authoritative_cpsc_recall_facts>
 """
 
-    def _parse_authoritative_verdict(self, raw_result) -> str:
+    def _parse_authoritative_verdict(self, raw_result: Any) -> str:
         parsed = raw_result
         if isinstance(raw_result, str):
             try:
                 parsed = json.loads(raw_result)
             except Exception:
                 raise gl.vm.UserError(ERROR_SEMANTIC + "MALFORMED_MODEL_OUTPUT")
-        if not isinstance(parsed, dict) or len(parsed) != 1 or "verdict" not in parsed:
+        if not isinstance(parsed, dict):
+            raise gl.vm.UserError(ERROR_SEMANTIC + "MODEL_SCHEMA_REJECTED")
+        parsed = cast(dict[str, Any], parsed)
+        if len(parsed) != 1 or "verdict" not in parsed:
             raise gl.vm.UserError(ERROR_SEMANTIC + "MODEL_SCHEMA_REJECTED")
         verdict = parsed["verdict"]
         if not isinstance(verdict, str):
@@ -424,7 +444,13 @@ Do not add reasoning, confidence, sources, or any other field.
             raise gl.vm.UserError(ERROR_SEMANTIC + "MODEL_VERDICT_ENUM")
         return verdict
 
-    def _assessment_result(self, recall_identifier: str, listing: Listing, canonical_facts: dict, model_result) -> dict:
+    def _assessment_result(
+        self,
+        recall_identifier: str,
+        listing: Listing,
+        canonical_facts: dict[str, Any],
+        model_result: Any,
+    ) -> dict[str, Any]:
         snapshot_sha256 = self._snapshot_id(canonical_facts)
         verdict = self._parse_authoritative_verdict(model_result)
         notice_id = self._notice_id(recall_identifier)
@@ -435,7 +461,7 @@ Do not add reasoning, confidence, sources, or any other field.
             "verdict": verdict,
         }
 
-    def _same_error_class(self, leader_result, leader_fn) -> bool:
+    def _same_error_class(self, leader_result: Any, leader_fn: Callable[[], Any]) -> bool:
         leader_message = getattr(leader_result, "message", "")
         if not isinstance(leader_message, str):
             return False
@@ -520,8 +546,7 @@ Do not add reasoning, confidence, sources, or any other field.
 
     @gl.public.write
     def request_assessment(self, listing_id: str, recall_identifier: str) -> None:
-        if not isinstance(listing_id, str) or len(listing_id) == 0 or len(listing_id) > MAX_ID_LENGTH:
-            self._fail("EXPECTED:INVALID_ID")
+        listing_id = self._validate_id(listing_id)
         if listing_id not in self.listings:
             self._fail("EXPECTED:LISTING_NOT_FOUND")
         normalized_recall_identifier = self._normalize_recall_identifier(recall_identifier)
@@ -531,7 +556,7 @@ Do not add reasoning, confidence, sources, or any other field.
         listing_in_memory = gl.storage.copy_to_memory(listing)
         notice_id = self._notice_id(normalized_recall_identifier)
 
-        def leader_fn():
+        def leader_fn() -> dict[str, Any]:
             try:
                 response = gl.nondet.web.get(self._cpsc_url(normalized_recall_identifier))
             except Exception:
@@ -546,11 +571,12 @@ Do not add reasoning, confidence, sources, or any other field.
                 raise gl.vm.UserError(ERROR_SEMANTIC + "MODEL_EXECUTION_FAILED")
             return self._assessment_result(normalized_recall_identifier, listing_in_memory, canonical_facts, model_result)
 
-        def validator_fn(leader_result) -> bool:
+        def validator_fn(leader_result: Any) -> bool:
             if isinstance(leader_result, gl.vm.Return):
-                leader_data = leader_result.calldata
-                if not isinstance(leader_data, dict):
+                leader_data_raw = leader_result.calldata  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+                if not isinstance(leader_data_raw, dict):
                     return False
+                leader_data = cast(dict[str, Any], leader_data_raw)
                 try:
                     response = gl.nondet.web.get(self._cpsc_url(normalized_recall_identifier))
                     validator_facts = self._parse_cpsc_response(response, normalized_recall_identifier)
@@ -585,7 +611,7 @@ Do not add reasoning, confidence, sources, or any other field.
             return False
 
         try:
-            result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
+            result: Any = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
         except gl.vm.UserError as error:
             self._fail(getattr(error, "message", str(error)))
         except Exception:
@@ -593,6 +619,7 @@ Do not add reasoning, confidence, sources, or any other field.
 
         if not isinstance(result, dict):
             self._fail(ERROR_CONSENSUS + "INVALID_RESULT")
+        result = cast(dict[str, Any], result)
         if result.get("notice_id") != notice_id:
             self._fail(ERROR_CONSENSUS + "NOTICE_ID_MISMATCH")
         snapshot_sha256 = result.get("snapshot_sha256")
@@ -628,42 +655,42 @@ Do not add reasoning, confidence, sources, or any other field.
         listing.state = next_state
         self.listings[listing_id] = listing
 
-    @gl.public.view
+    @gl.public.view  # pyright: ignore[reportUnknownMemberType]
     def get_listing(self, listing_id: str) -> Listing:
         if listing_id not in self.listings:
             self._fail("EXPECTED:LISTING_NOT_FOUND")
         return self.listings[listing_id]
 
-    @gl.public.view
+    @gl.public.view  # pyright: ignore[reportUnknownMemberType]
     def get_assessment(self, assessment_id: str) -> Assessment:
         if assessment_id not in self.assessments:
             self._fail("EXPECTED:ASSESSMENT_NOT_FOUND")
         return self.assessments[assessment_id]
 
-    @gl.public.view
+    @gl.public.view  # pyright: ignore[reportUnknownMemberType]
     def get_listing_ids(self) -> DynArray[str]:
         return self.listing_ids
 
-    @gl.public.view
+    @gl.public.view  # pyright: ignore[reportUnknownMemberType]
     def get_assessment_ids(self) -> DynArray[str]:
         return self.assessment_ids
 
-    @gl.public.view
+    @gl.public.view  # pyright: ignore[reportUnknownMemberType]
     def get_listing_assessments(self, listing_id: str) -> list[str]:
         if listing_id not in self.listings:
             self._fail("EXPECTED:LISTING_NOT_FOUND")
-        result = []
+        result: list[str] = []
         for assessment_id in self.assessment_ids:
             if self.assessments[assessment_id].listing_id == listing_id:
                 result.append(assessment_id)
         return result
 
-    @gl.public.view
+    @gl.public.view  # pyright: ignore[reportUnknownMemberType]
     def get_attestation(self, assessment_id: str) -> Assessment:
         return self.get_assessment(assessment_id)
 
-    @gl.public.view
-    def contract_info(self) -> dict:
+    @gl.public.view  # pyright: ignore[reportUnknownMemberType]
+    def contract_info(self) -> dict[str, Any]:
         return {
             "name": "RecallGuard",
             "version": "v2",

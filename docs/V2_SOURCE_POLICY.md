@@ -76,8 +76,11 @@ environment variable may override those values during deployment.
 
 ## Live qualification gate
 
-The prior five-observation probe found the CPSC API endpoint returned one
-requested record with equal stable facts and equal canonical fact hash. The
+The final-runner five-observation probe found the CPSC API endpoint returned
+one requested record on every read, with equal stable facts and equal
+canonical fact hash. This qualifies the fixed source for the non-write
+transport/extraction gate; it is not protocol consensus or finality. The
+required multi-validator semantic fixtures remain a separate release gate. The
 Amazon probe alternated between a large dynamic page and CAPTCHA/“Continue
 shopping” bodies, so Amazon is explicitly **not qualified** and is excluded
 from consensus. No Fixture A/B/C semantic transaction may run until the fixed

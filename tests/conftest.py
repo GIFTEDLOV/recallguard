@@ -29,14 +29,14 @@ def _patch_windows_direct_loader():
 
     def allocate_contract(contract_cls, vm, *args, **kwargs):
         try:
-            import genlayer.py.storage as legacy_storage
+            import genlayer.py.storage as header_storage
             from genlayer.py.storage._internal.generate import (
                 ORIGINAL_INIT_ATTR,
                 _storage_build,
             )
 
             type_desc = _storage_build(contract_cls, {})
-            slot = vm._storage.get_store_slot(legacy_storage.ROOT_SLOT_ID)
+            slot = vm._storage.get_store_slot(header_storage.ROOT_SLOT_ID)
             instance = type_desc.get(slot, 0)
             init = getattr(type_desc, "cls", None)
             init = getattr(init or contract_cls, "__init__", None)
@@ -50,19 +50,19 @@ def _patch_windows_direct_loader():
 
     loader._allocate_contract = allocate_contract
 
-    def patch_legacy_nondet():
+    def patch_header_nondet():
         try:
-            import genlayer.gl.vm as legacy_vm
-            from genlayer.py import calldata as legacy_calldata
+            import genlayer.gl.vm as header_vm
+            from genlayer.py import calldata as header_calldata
         except ImportError:
             return
         from gltest.direct import wasi_mock
 
-        # gltest 0.30's WASI shim defaults to the newer calldata namespace;
-        # the contract header intentionally selects the documented legacy
-        # runner, whose wire format is decoded by genlayer.py.calldata.
-        wasi_mock.import_calldata = lambda: legacy_calldata
-        if getattr(legacy_vm, "_direct_mode_patched", False):
+        # gltest 0.30's WASI shim defaults to a different calldata namespace;
+        # the contract header selects the documented py-genlayer dependency,
+        # whose wire format is decoded by genlayer.py.calldata.
+        wasi_mock.import_calldata = lambda: header_calldata
+        if getattr(header_vm, "_direct_mode_patched", False):
             return
 
         def direct_run_nondet_unsafe(leader_fn, validator_fn, /, **kwargs):
@@ -80,13 +80,13 @@ def _patch_windows_direct_loader():
             vm._captured_validators.append((result, leader_fn, validator_fn))
             return result
 
-        legacy_vm.run_nondet_unsafe = direct_run_nondet_unsafe
-        legacy_vm._direct_mode_patched = True
+        header_vm.run_nondet_unsafe = direct_run_nondet_unsafe
+        header_vm._direct_mode_patched = True
 
-    loader._patch_run_nondet_for_direct_mode = patch_legacy_nondet
+    loader._patch_run_nondet_for_direct_mode = patch_header_nondet
 
     # VMContext.run_validator in the installed RC imports genlayer.vm. The
-    # declared legacy runner exposes the same result types under genlayer.gl.
+    # header-selected runner exposes the result types under genlayer.gl.
     from gltest.direct.vm import VMContext, _sentinel
 
     original_refresh_gl_message = VMContext._refresh_gl_message
@@ -94,7 +94,7 @@ def _patch_windows_direct_loader():
     def refresh_gl_message(self):
         original_refresh_gl_message(self)
         try:
-            import genlayer.gl as legacy_gl
+            import genlayer.gl as header_gl
             from genlayer.py.types import Address, u256
 
             sender = self.sender
@@ -106,7 +106,7 @@ def _patch_windows_direct_loader():
                 origin = Address(origin)
             if isinstance(contract_address, bytes):
                 contract_address = Address(contract_address)
-            legacy_gl.message = legacy_gl.MessageType(
+            header_gl.message = header_gl.MessageType(
                 contract_address=contract_address,
                 sender_address=sender,
                 origin_address=origin,
@@ -119,16 +119,16 @@ def _patch_windows_direct_loader():
     VMContext._refresh_gl_message = refresh_gl_message
 
     def run_validator(self, *, leader_result=_sentinel, leader_error=None, index=-1):
-        import genlayer.gl.vm as legacy_vm
+        import genlayer.gl.vm as header_vm
         if not self._captured_validators:
             raise RuntimeError("No validator captured")
         stored_result, _leader_fn, validator_fn = self._captured_validators[index]
         if leader_error is not None:
-            wrapped = legacy_vm.UserError(str(leader_error))
+            wrapped = header_vm.UserError(str(leader_error))
         elif leader_result is not _sentinel:
-            wrapped = legacy_vm.Return(calldata=leader_result)
+            wrapped = header_vm.Return(calldata=leader_result)
         else:
-            wrapped = legacy_vm.Return(calldata=stored_result)
+            wrapped = header_vm.Return(calldata=stored_result)
         return validator_fn(wrapped)
 
     VMContext.run_validator = run_validator

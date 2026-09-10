@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { isSuccessfulTransaction } from "./RecallGuard";
 
 describe("GenLayer transaction success semantics", () => {
-  it("accepts an accepted transaction only with FINISHED_WITH_RETURN", () => {
-    expect(isSuccessfulTransaction({ statusName: "ACCEPTED", txExecutionResultName: "FINISHED_WITH_RETURN" })).toBe(true);
+  it("does not treat Accepted as durable application completion", () => {
+    expect(isSuccessfulTransaction({ statusName: "ACCEPTED", txExecutionResultName: "FINISHED_WITH_RETURN" })).toBe(false);
   });
 
   it("accepts a finalized transaction only with FINISHED_WITH_RETURN", () => {
@@ -30,20 +30,8 @@ describe("GenLayer transaction success semantics", () => {
     expect(isSuccessfulTransaction({ statusName: "FINALIZED" })).toBe(false);
   });
 
-  it("supports the installed SDK's numeric compatibility mapping for accepted", () => {
-    expect(isSuccessfulTransaction({ status: 5, txExecutionResultName: "FINISHED_WITH_RETURN" })).toBe(true);
-  });
-
-  it("supports the installed SDK's numeric compatibility mapping for finalized", () => {
-    expect(isSuccessfulTransaction({ status: 7, txExecutionResultName: "FINISHED_WITH_RETURN" })).toBe(true);
-  });
-
-  it("does not mistake the old undetermined numeric status for finality", () => {
-    expect(isSuccessfulTransaction({ status: 6, txExecutionResultName: "FINISHED_WITH_RETURN" })).toBe(false);
-  });
-
-  it("accepts the documented executionResultName spelling from transaction-kit adapters", () => {
-    expect(isSuccessfulTransaction({ statusName: "FINALIZED", executionResultName: "FINISHED_WITH_RETURN" })).toBe(true);
+  it("does not treat a non-v2 execution-result field as success", () => {
+    expect(isSuccessfulTransaction({ statusName: "FINALIZED", executionResultName: "FINISHED_WITH_RETURN" })).toBe(false);
   });
 
   it("requires protocol status and execution result together", () => {

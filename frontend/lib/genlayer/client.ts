@@ -66,5 +66,8 @@ export function createGenLayerClient(address?: string) {
     config.account = address as `0x${string}`;
     config.provider = provider;
   }
+  // genlayer-js v2 owns calldata encoding, transaction envelopes, and fee
+  // policy resolution. Keep this wrapper limited to the official client
+  // configuration so no application code can drift back to v1 wire formats.
   return createClient(config as never);
 }

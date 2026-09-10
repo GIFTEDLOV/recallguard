@@ -1,70 +1,65 @@
 # Official GenLayer documentation audit
 
-Audit basis: [GenLayer full documentation](https://docs.genlayer.com/full-documentation.txt),
-retrieved 2026-09-10. This is a requirement-by-requirement implementation
-audit for `v2/remediation`, not a summary of the documentation. The audit
-started at `11de4eb21bcf8decc47d88a629a5cd1d46c123e9` and must be rerun after
-any toolchain or contract dependency change.
+Audit basis: [the official full documentation](https://docs.genlayer.com/full-documentation.txt),
+the [Consensus v0.6 migration guide](https://docs.genlayer.com/developers/consensus-v06-migration),
+and the [GenLayerJS v2 reference](https://docs.genlayer.com/api-references/genlayer-js),
+retrieved 2026-09-10. This is a requirement-by-requirement audit of the
+release candidate at `740adef951c23494ae77cf7f21d89c45f7eb9d8e` plus the
+final docs-alignment changes in the working tree. The semantic contract
+architecture remained unchanged; the contract bytes changed only for explicit
+strict-type annotations and linter-compatible boundary comments around the
+existing custom consensus implementation. The starting V2 contract SHA was
+`abbfa666d15858d8efa41b321a39287f282963a28315b92f1a1c79aadfe3cb9b`; the
+current working-tree SHA is recorded in `docs/V2_TEST_REPORT.md`.
+
+The eight `CHANGE REQUIRED` findings in the previous audit meant “changes
+were required at audit time”; they are not eight unresolved findings. Each is
+closed below as `RESOLVED` or `BLOCKED EXTERNALLY` with a concrete reason.
 
 ## Decision-critical requirements
 
-| Requirement from the official specification | Classification | Evidence or exact remaining action |
+| Official requirement | Status | Code, test, or artifact evidence |
 | --- | --- | --- |
-| Use an Intelligent Contract where a shared result requires interpretation of external information | PASS | `contracts/recall_guard.py` records an append-only assessment and derives a shared listing state. `tests/direct/test_assessment.py` and `test_state_aggregation.py` cover the result. |
-| Keep state mutation deterministic and outside nondeterministic execution | PASS | `request_assessment` writes only after `run_nondet_unsafe` returns a matching result. `tests/direct/test_consensus_safety.py` checks failed paths leave no stored assessment. |
-| Put web/LLM work inside a nondeterministic boundary | PASS | The only assessment web call and semantic evaluation are inside `gl.vm.run_nondet_unsafe` closures. |
-| Do not access persistent storage from a nondeterministic closure | PASS | `request_assessment` obtains `gl.storage.copy_to_memory(self.listings[listing_id])` before constructing the closures. `test_pickling_checks_are_enabled_for_captured_consensus_closures` exercises the boundary with pickling checks. |
-| Prefer an explicit custom leader/validator implementation for safety-critical custom equivalence | PASS | Leader and validator in `contracts/recall_guard.py` independently fetch, parse, canonicalize, hash, and adjudicate the fixed CPSC source. No `prompt_comparative` path remains. |
-| Validators must independently reproduce the decision, not just validate leader JSON | PASS | The validator repeats source retrieval and semantic derivation, then compares `notice_id`, `recall_id`, `snapshot_sha256`, and `verdict`. `tests/direct/test_consensus_safety.py` includes semantic verdict, snapshot, extra-field, and enum disagreement cases. |
-| Handle `Return`, `UserError`, and `VMError` before reading validator calldata | PASS | The validator classifies GenLayer result objects before accessing their data; ordinary exceptions are classified separately as source, transient, semantic, or consensus failures. Covered by UserError and timeout tests. |
-| Extract stable structured data before equivalence comparison | PASS | `_parse_cpsc_response` returns only the canonical CPSC decision structure. Raw HTTP bytes, wrapper ordering, URLs, and presentation fields are not stored or compared. Canonical and mutation tests cover relevant versus irrelevant field changes. |
-| Contract-constructed prompts must treat retrieved content as data | PASS | `_decision_prompt` has fixed instructions, minimal caller-controlled text, delimited registered/CPSC facts, and explicit prompt-injection defenses. Tests include fake JSON, system-message text, and instruction injection. |
-| Model output must be structurally minimal and exact | PASS | `_parse_authoritative_verdict` accepts exactly one object key, `verdict`, with only `AFFECTED`, `NOT_AFFECTED`, or `INCONCLUSIVE`. Malformed output never becomes a business result. |
-| LLM calls are nondeterministic inputs and must be contract-scoped, bounded, and treated as untrusted output | PASS | The prompt is assembled in the contract, registered facts and canonical CPSC facts are delimited as data, and only the exact three-value object is accepted. No caller supplies a system prompt or equivalence rule. |
-| Errors must not be converted into a favorable or inconclusive business verdict | PASS | Source, transient, semantic, consensus, fee, and transaction failures raise without appending an assessment. Tests cover malformed schema, HTTP errors, timeout, invalid model output, and disagreement. |
-| Registration must distinguish existence from consensus clearance | PASS | `register_listing` initializes `UNASSESSED`; only a successful stored `NOT_AFFECTED` can contribute to `CLEARED`. Registration tests assert no safe/clear alias. |
-| State must aggregate complete successful history by priority | PASS | `_aggregate_state` scans stored `ADJUDICATED` records with `AFFECTED > INCONCLUSIVE > NOT_AFFECTED > none`. Order and repeated-notice tests cover all permutations. |
-| Source allowlisting is not publisher authentication; hashing is integrity only | PASS | `docs/V2_SOURCE_POLICY.md`, `config/v2_source_policy.json`, `contract_info`, and the UI separate admissibility, content integrity, semantic adjudication, consensus, and finality. |
-| Recall evidence must use an admissible fixed authority boundary | PASS | The contract accepts a bounded recall identifier and constructs exactly `https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallNumber=<id>`. Caller URLs, hosts, paths, query strings, and body hashes are not accepted. |
-| Amazon must not be treated as authenticated consensus evidence | PASS | Amazon is a namespace/informational URL only. There is no Amazon `web.get`, render, HTML hash, or evidence argument in the contract. The five-request qualification observed challenge-page instability and correctly classified Amazon as unqualified. |
-| Logical notice identity must be separated from the evidence snapshot | PASS | Notice ID hashes version + `CPSC` + exact recall identifier; snapshot ID hashes canonical decision facts. Tests cover updated snapshots, exact duplicates, domain separation, and URL-query replay. |
-| Listing identity must be stable across mutable descriptive facts | PASS | Listing ID hashes identity version + canonical marketplace host + normalized external listing ID only. Independent Python/TypeScript reference vectors and cross-marketplace tests cover the boundary. |
-| Transaction writes require fee policy, returned transaction ID, finality, execution result, and readback | CHANGE REQUIRED | `deploy/deployScript.ts` and `frontend/lib/contracts/RecallGuard.ts` fail closed unless the v2 fee estimator returns `distribution` and `feeValue`; they then persist and reconcile the same ID and require `FINISHED_WITH_RETURN`. The installed `genlayer-js 1.1.8` does not provide the v2 estimator, no measured `fee-profile.json` exists, and no live write may be enabled until the coherent v0.6 RC family is installed and profiled. |
-| A successful transaction requires lifecycle status plus `FINISHED_WITH_RETURN` | PASS | `isSuccessfulTransaction` and deployment verification require `ACCEPTED`/`FINALIZED` together with `FINISHED_WITH_RETURN`. `Finalized + FINISHED_WITH_ERROR` is a failure in `frontend/lib/contracts/RecallGuard.test.ts`. |
-| Protocol `FINALIZED` must not be asserted by contract business state | PASS | The contract stores `ADJUDICATED`; the UI labels a transaction finalized only from a reconciled protocol receipt. Historical `PROVENANCE.md` references are preserved V1 evidence, not V2 semantics. |
-| Persist the returned GenLayer transaction ID before polling and reconcile that same ID after refresh/timeout | PASS | `pendingTransactions.save` occurs immediately after `writeContract` returns. Recovery tests cover submitted, accepted, finalization-window, failed execution, disconnect, timeout, and duplicate click behavior. |
-| Never blind-rebroadcast after an uncertain client timeout | PASS | A pending/reconciliation-required record blocks a new write and polls the persisted hash. No replacement or nonce-level retry is implemented in the application. |
-| Use `LATEST_FINAL` or the current documented final read snapshot for durable readback | CHANGE REQUIRED | The readback abstraction needs a finality-aware snapshot selector in the installed v2 client. This cannot be verified with the installed pre-v2 `genlayer-js`; the release remains blocked until the exact current API is pinned and the readback test uses its documented final snapshot. |
-| DApp architecture must separate authoritative contract reads from local UX state | PASS | Listing and assessment views are read from the contract; local storage contains only pending/confirmed transaction reconciliation metadata and never supplies a safety state. |
-| GenLayerJS write/query APIs must be used with current transaction lifecycle semantics | CHANGE REQUIRED | The adapter has the documented lifecycle shape and fail-closed guards, but the checked-in dependency is `genlayer-js 1.1.8`, not the official v2 RC family. Re-run SDK-specific query, fee, and lifecycle tests after pinning the current client. |
-| Preserve structured RPC error data and decode current error surfaces | CHANGE REQUIRED | `frontend/lib/ui.ts` recognizes structured code/data before compatibility text, but raw payload preservation and current ABI/error decoding cannot be certified against `genlayer-js 2.0 RC` until that client is installed. Add an SDK-specific error decoder test as part of toolchain qualification. |
-| Use the coherent v0.6 release family rather than mixing old SDKs | CHANGE REQUIRED | Official v0.6 guidance names matching node/Studio, `genlayer-js 2.0 RC`, `genlayer-py 0.19 RC`, CLI `0.40 RC`, matching Transaction Kit and gltest. `toolchain.json` records the observed mismatch: CLI `0.39.1`, JS `1.1.8`, Python `0.19.0rc2`, gltest `0.30.0rc2`, linter `0.11.0`, and no Transaction Kit. Do not install latest blindly; resolve as one tested family. |
-| Fee profiles must be measured from representative paths and reused reproducibly | CHANGE REQUIRED | `deploy/deployScript.ts` consumes a root `fee-profile.json`, but that artifact does not exist because the target fee family is not installed. Generate deploy/register/assessment/error profiles only after installing the compatible SDK and running representative measurements. |
-| Transaction Kit is the preferred current fee/signing/tracking surface when compatible | NOT APPLICABLE (blocked pending compatibility) | No compatible Transaction Kit is installed. The custom React adapter is intentionally fail-closed and must be rechecked against the exact v2 client before release. Migration is not justified until compatibility is proven. |
-| Layer tests from deterministic/storage to mocked nondeterminism, direct validators, Studio/GLSim, then Bradbury | CHANGE REQUIRED | 91 direct tests run with strict mocks and pickling checks, including explicit disagreement. No Studio/GLSim multi-validator semantic fixture run has been completed, and no Bradbury write is authorized. Add the integration layer after the toolchain is coherent. |
-| `genvm-lint` and strict type validation must run on the exact release contract | PASS / CHANGE REQUIRED | `genvm-lint check` and `validate` are expected gates for the current source and must be rerun at the final commit. `genvm-lint typecheck --strict` is not currently executable because the installed environment lacks the compatible `pyright` surface; this remains a release blocker, not a waived check. |
-| Production policy must be machine-readable, immutable, and reproducible | PASS | `config/v2_source_policy.json` and `docs/V2_SOURCE_POLICY.md` freeze CPSC host/path, canonical fields, Amazon namespace-only treatment, fixture and limitations. Deployment consumes the exact policy rather than vague deployment-time governance. |
-| Bradbury writes must be gated by both RPC views and unresolved-hash checks | NOT APPLICABLE (not reached) | No Bradbury nonce or mempool action was taken because Amazon failed qualification and the toolchain/fee gates remain closed. Before any future write, read both RPCs, compare latest/pending nonce and prior hashes, and stop on disagreement. |
+| Use an Intelligent Contract when a shared result requires interpretation of external information | PASS | `contracts/recall_guard.py` uses a nondeterministic source/semantic boundary and commits a shared append-only result. |
+| Keep deterministic mutation outside nondeterministic execution | PASS | `request_assessment` appends only after the custom consensus result passes all checks; failure tests assert unchanged history/state. |
+| Put web and LLM work inside nondeterministic execution | PASS | The only CPSC web and model calls are in the leader/validator closures passed to `run_nondet_unsafe`. |
+| Copy storage objects to memory before nondeterministic execution | PASS | `gl.storage.copy_to_memory` is used before closures are built; direct tests enable `check_pickling=True`. |
+| Use a custom validator for safety-critical equivalence | PASS | Leader and validator independently fetch, parse, canonicalize, hash, and adjudicate the fixed CPSC source. |
+| Validators independently reproduce the decision | PASS | Validator derives its own notice, snapshot, and verdict and compares all decision-critical fields; leader-only enum/schema tests fail. |
+| Handle `Return`, `UserError`, and `VMError` before validator calldata access | PASS | The validator classifies each result type first; direct tests cover UserError, VMError, timeout, and disagreement. |
+| Extract stable structured data before equivalence comparison | PASS | Only the bounded canonical CPSC fields are compared/stored; raw body and irrelevant API fields are excluded. |
+| Treat retrieved content as untrusted data in a fixed prompt | PASS | Prompt instructions are contract-constructed, evidence is delimited, and prompt-injection fixtures cannot alter the exact three-value output policy. |
+| Accept only `AFFECTED`, `NOT_AFFECTED`, or `INCONCLUSIVE` | PASS | `_parse_authoritative_verdict` requires exactly one key and one exact enum. |
+| Do not turn source, semantic, or consensus failure into a business verdict | PASS | Error classes raise before assessment append; failure tests assert no state mutation and no assessment. |
+| Registration must start unassessed | PASS | Constructor/registration initialize `UNASSESSED`; only successful `NOT_AFFECTED` history can produce `CLEARED`. |
+| Aggregate complete successful history by adverse priority | PASS | `_derive_listing_state` implements `AFFECTED > INCONCLUSIVE > NOT_AFFECTED > none` over stored `ADJUDICATED` records. |
+| Source allowlisting is not publisher authentication; hashes provide integrity only | PASS | `docs/V2_SOURCE_POLICY.md`, `config/v2_source_policy.json`, contract metadata, and UI terminology separate source policy, integrity, semantics, consensus, and finality. |
+| Construct a fixed authoritative CPSC request; do not accept a caller URL | PASS | The bounded identifier is validated and inserted into the fixed `/RestWebServices/Recall` request. |
+| Do not use Amazon as consensus evidence | PASS | Amazon is only a namespace/informational URL. No validator fetch, render, body hash, or caller evidence URL exists in the contract. |
+| Separate logical notice identity from snapshot identity | PASS | Notice ID is version + `CPSC` + exact identifier; snapshot ID is canonical decision-field content. |
+| Keep listing identity independent of mutable metadata/evidence | PASS | Stable ID is version + canonical marketplace host + normalized external listing ID; independent Python/TypeScript vectors cover this boundary. |
+| Write flows require fee policy, one returned transaction ID, finality, execution result, and readback | RESOLVED | `frontend/lib/contracts/RecallGuard.ts` and `deploy/deployScript.ts` use v2 fee estimation, persist the returned ID before polling, wait for finalization, require the official success predicate, and read `LATEST_FINAL` state. A measured profile is still gated externally. |
+| Successful execution requires lifecycle status plus `FINISHED_WITH_RETURN` | RESOLVED | The frontend uses `isSuccessful` from `genlayer-js` v2 and tests finalized-return versus finalized-error. Deployment additionally requires `FINALIZED`. |
+| Do not call contract business state `FINALIZED` merely because execution reached a line | PASS | Assessments are `ADJUDICATED`; UI finality comes only from the protocol transaction receipt. |
+| Persist and reconcile the same transaction ID after refresh/timeout | PASS | `pendingTransactions.save` occurs immediately after SDK submission; recovery tests prohibit a replacement broadcast. |
+| Use final read snapshots for durable state | RESOLVED | All contract reads use `TransactionHashVariant.LATEST_FINAL`; the selector is from the installed v2 SDK types. |
+| Use current GenLayerJS v2 calldata/envelope APIs | RESOLVED | No application calldata encoder remains; reads, writes, deployment, fee estimation, finalization, and success checking are official v2 APIs. `npm list` reports only `genlayer-js@2.0.0-rc.1`. |
+| Keep test calldata helpers aligned with the selected runner | RESOLVED | Production code never encodes calldata. The Windows direct-test compatibility hook delegates encoding to the official dependency selected by the contract header because the pinned gltest RC otherwise imports the wrong SDK namespace; it is documented as a test-only adapter and is excluded from deployment. |
+| Preserve structured RPC error data | RESOLVED | Submission errors preserve `cause`, `data`, and `code`; UI decoding checks structured fields before compatibility text. |
+| Use one v0.6 release family | RESOLVED | `toolchain.json`, `requirements.txt`, and `frontend/package.json` pin CLI `0.40.0-rc.3`, JS `2.0.0-rc.1`, Py `0.19.0rc2`, gltest `0.30.0rc2`, and linter `0.11.0`; official registry/release metadata was verified. |
+| Measure fee profiles from representative paths and reuse them | BLOCKED EXTERNALLY | The reproducible wrapper is `scripts/generate_fee_profile.py` and invokes the pinned `gltest --fee-profile` path. The final five-validator GLSim endpoint accepted the request but every validator failed to load the contract with `unexpected end of memory`; the profiler therefore emitted no measured entries. No fee values are fabricated or checked in. |
+| Use Transaction Kit when compatible, otherwise implement the same low-level semantics | NOT APPLICABLE | Transaction Kit is not installed; the custom adapter uses the documented v2 profile-plus-live-price estimator, SDK submission, ID persistence, finalization, success predicate, and readback semantics. |
+| Follow the official test layering through Studio/GLSim before Bradbury | BLOCKED EXTERNALLY | Direct/adversarial/validator layers pass; pinned five-validator GLSim reaches agreement only on a contract-load `ERROR` (`unexpected end of memory`), while earlier attempts stalled before a receipt. Five-validator semantic proof cannot honestly be reported as complete. |
+| Run linter, validation, check, and strict typecheck | RESOLVED | `genvm-lint` `0.11.0` passes all four commands with `GENVM_VERSION=v0.3.0-rc7`; the unchanged contract dependency is present in that official runner. |
+| Freeze machine-readable production source policy | PASS | `config/v2_source_policy.json` freezes the CPSC host/path, canonical fields, fixture policy, and Amazon namespace-only treatment. |
+| Gate Bradbury writes on both RPC views and unresolved-hash checks | NOT APPLICABLE | Bradbury was not reached. No Bradbury nonce read, transaction, replacement, cancellation, or production write was attempted. |
 
-## Required release actions
+## Current release decision
 
-The implementation changes required by the docs-alignment audit are complete
-for the contract/source boundary. The following are still required before a
-live release can be called ready:
-
-1. Install and record one coherent v0.6-compatible CLI/SDK/Python/gltest/
-   Transaction Kit family; do not mix it with the installed legacy JS client.
-2. Generate and check in a measured `fee-profile.json` for deploy, registration,
-   assessment, and required failure branches.
-3. Re-run the exact contract with the compatible linter, strict typecheck, and
-   Studio/GLSim five-validator semantic fixtures.
-4. Repeat the five-observation CPSC gate using the exact GenVM runtime of that
-   family. The current read-only probe passed, but it is not protocol consensus.
-5. Only after all gates pass may the separate Bradbury mempool gate be read; no
-   deployment, application write, Vercel change, merge, or push is authorized by
-   this audit.
-
-The official documentation requires validators to independently reproduce the
-decision and requires durable transaction success to include
-`FINISHED_WITH_RETURN`; these are the two release properties most likely to be
-silently weakened by an SDK migration and therefore remain explicit gates.
+The contract/source trust architecture is docs-aligned and the offline
+decision-critical suite is intact. The release candidate is not deployable:
+the measured fee profile and actual five-validator semantic proof remain
+blocked by the pinned local GLSim contract-load error (`unexpected end of
+memory`). This is an explicit external blocker, not a waived gate. No
+Bradbury transaction may be broadcast until those gates complete and the
+two-RPC nonce/mempool preflight is consistent.
