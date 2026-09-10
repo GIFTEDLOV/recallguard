@@ -29,6 +29,9 @@ jobs:
       - name: Run Direct Mode tests
         run: python -m pytest -q
 
+      - name: Run decision-critical mutation tests
+        run: python scripts/v2_mutation_test.py
+
       - name: Run GenVM lint
         run: genvm-lint check contracts/recall_guard.py
 
@@ -38,18 +41,17 @@ jobs:
       - name: Verify contract source and deployment provenance
         shell: bash
         run: |
-          expected='6b1e595b98eaf4eaab2e98b97176dfb3b796ed43788884ee22ec05c93e9bdc6f'
-          actual="$(sha256sum contracts/recall_guard.py | cut -d ' ' -f1)"
-          test "$actual" = "$expected"
-          grep -Fq "$expected" PROVENANCE.md
-          grep -Fq '0xcB6688DcD30bDB97B882c02a1B1273914dcAB563' PROVENANCE.md
+          grep -Fq '6b1e595b98eaf4eaab2e98b97176dfb3b796ed43788884ee22ec05c93e9bdc6f' docs/V1_FREEZE.md
+          grep -Fq 'v2-stable-source-identity' contracts/recall_guard.py
+          grep -Fq 'STATE_UNASSESSED' contracts/recall_guard.py
+          grep -Fq 'get_listing_assessments' contracts/recall_guard.py
 
       - name: Verify production configuration
         shell: bash
         run: |
           grep -Fq 'https://rpc-bradbury.genlayer.com' frontend/lib/genlayer/client.ts
           grep -Fq 'testnetBradbury' frontend/lib/genlayer/client.ts
-          grep -Fq '0xcB6688DcD30bDB97B882c02a1B1273914dcAB563' frontend/.env.example
+          ! grep -Fq '0xcB6688DcD30bDB97B882c02a1B1273914dcAB563' frontend/.env.example
           ! grep -R -nE 'studio\.genlayer\.com|studionet|61999|localhost:4000' frontend/lib frontend/.env.example
 
       - name: Set up Node.js

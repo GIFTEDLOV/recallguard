@@ -1,57 +1,115 @@
-# RecallGuard architecture
+# RecallGuard V2 architecture
 
-## Product and parties
+RecallGuard evaluates whether a specific marketplace listing falls within the
+affected scope of an admissible product-recall notice. The GenLayer
+Intelligent Contract owns listing identity, evidence admissibility, semantic
+verdict, finalized assessment history, and the derived listing state.
 
-RecallGuard evaluates whether a specific product or marketplace listing falls within the affected scope of an authoritative product-recall notice. Marketplaces, resellers, procurement teams, equipment operators, and product owners submit listing metadata and public evidence. RecallGuard's GenLayer Intelligent Contract owns the authoritative verdict and listing-state transition.
+## Authoritative state model
 
-## Trust problem and why GenLayer
+The only listing states are:
 
-The trust-sensitive question is semantic: whether a particular model, lot, serial range, or product description is covered by a notice. A conventional backend can fetch and summarize text, but it cannot make that interpretation authoritative without becoming a centralized oracle. GenLayer lets the contract fetch public evidence and run an evaluator in non-deterministic blocks while validators independently reproduce and agree on the decision-critical result.
+- `UNASSESSED`: no successful consensus-backed assessment exists.
+- `CLEARED`: at least one finalized relevant assessment exists and all recorded
+  relevant verdicts are `NOT_AFFECTED`.
+- `REVIEW_REQUIRED`: no `AFFECTED` assessment exists, but at least one
+  finalized relevant verdict is `INCONCLUSIVE`.
+- `BLOCKED`: at least one finalized relevant verdict is `AFFECTED`.
 
-## Evidence and trust boundary
+Registration always creates `UNASSESSED`. It never creates `CLEARED`.
+State is derived from the complete finalized history with priority
+`AFFECTED > INCONCLUSIVE > all NOT_AFFECTED`; a later favorable notice cannot
+erase an adverse or unresolved result.
 
-Recall notices must use HTTPS and a configured authoritative domain. Listing evidence must use an explicit public HTTPS URL. Both sources are bounded, required to return HTTP 200, decoded as strict UTF-8, and committed with a canonical lowercase SHA-256 digest. The contract independently fetches each source and checks the digest before semantic evaluation.
+## Stable listing identity
 
-Authentication and integrity are separate: the domain allowlist is a deterministic source-policy check; the digest is an integrity check for the bytes fetched in this execution. Consensus proves agreement about interpretation and does not authenticate a source. Official pages remain mutable authoritative-source evidence; the stored URL and digest record what was assessed, not an immutable claim that the live page can never change.
+The stable listing ID is the SHA-256 of this exact JSON array, after trimming,
+lowercasing, and collapsing whitespace in each part:
 
-All fetched text is untrusted. The evaluator receives explicit system instructions plus separately delimited recall and listing evidence, and is told that source text may contain commands, fake verdicts, JSON, or prompt instructions. Prompting is defense-in-depth only; strict deterministic schema parsing is authoritative.
+```text
+[marketplace_host, external_listing_id, product_id, manufacturer, model, serial_or_lot]
+```
 
-## Exact validator question
+The marketplace host must match the HTTPS listing URL and be in the configured
+marketplace allowlist. The external listing identifier is the marketplace's
+stable source identity. Product name, listing URL path, evidence URL, and
+evidence digest are deliberately separate mutable evidence-snapshot fields;
+changing a snapshot cannot create a new stable listing identity. This does not
+prove ownership, title, physical authenticity, legal authority, or that a
+marketplace will never recycle an external identifier.
 
-For each source, validators independently reproduce the fetched UTF-8 body and its SHA-256 digest through the current custom `gl.vm.run_nondet_unsafe` leader/validator mechanism and compare the canonical envelope exactly. This avoids accepting a leader-provided digest or source summary. For the semantic step, validators independently run the same minimal evaluator and the comparative equivalence principle asks: “Is the `verdict` field exactly identical, with no additional authoritative fields accepted?” Only a strictly parsed enum is allowed to reach state mutation.
+The canonical implementation is duplicated in
+`frontend/lib/canonical.ts`, with a cross-implementation vector test.
 
-## Verdict and state machine
+## Source trust boundary
 
-The only authoritative verdicts are `AFFECTED`, `NOT_AFFECTED`, and `INCONCLUSIVE`. Affected transitions the listing to `BLOCKED`; inconclusive transitions it to `RECALL_REVIEW`; not affected transitions it to `ACTIVE` only after source policy, integrity, availability, model schema, and consensus all succeed. Any evidence, model, or consensus failure reverts and does not mutate listing or assessment state.
+Recall notices, marketplace listing URLs, and listing evidence URLs are
+separately configured by domain allowlists. Every fetched source must be HTTPS,
+resolve to HTTP 200, decode as strict UTF-8, stay within the byte limit, and
+match its lowercase SHA-256 commitment. These checks establish policy
+admissibility and byte integrity. They do not authenticate a legal authority,
+domain control, signatures, or page permanence. Consensus authenticates neither
+source nor content; it only makes the semantic decision reproducible.
 
-`BLOCKED` is terminal for V1. A successful assessment is append-only: its deterministic ID includes the listing ID, recall URL, recall digest, and listing-evidence digest, and an existing assessment cannot be overwritten. A changed digest for a mutable source creates a distinct assessment record.
+Fetched content is untrusted evidence. The evaluator receives delimited source
+text and strict instructions, and the contract accepts only a JSON object with
+one exact verdict field. Malformed output, extra fields, invalid enums, fetch
+failure, validator disagreement, timeout, and unavailable evidence revert with
+no business verdict and no authoritative state mutation.
 
-## Error taxonomy
+## Permissionless assessment
 
-- `BUSINESS:*`: duplicate listing/assessment, invalid ID, unauthorized action, or illegal state transition.
-- `EVIDENCE_INTEGRITY:*`: HTTPS/domain policy, metadata, UTF-8, size, malformed evidence, or SHA mismatch.
-- `EVIDENCE_UNAVAILABLE:*`: non-200, timeout, unreachable source, or temporary fetch failure.
-- `SEMANTIC_MODEL:*`: malformed JSON, missing/extra keys, wrong type, or invalid enum.
-- `CONSENSUS:*`: disagreement, validator timeout, or equivalence failure.
+`request_assessment(listing_id, recall_url, recall_sha256)` is permissionless.
+Owners and unrelated marketplace operators use the same path. `requested_by`
+is stored on the finalized assessment. There is no owner cancellation,
+overwrite, suppression, appeal, or administrator veto.
 
-These domains are never converted into a business verdict.
+Notice identity is the SHA-256 of the canonical recall URL plus the exact
+recall-body digest. Assessment identity is the SHA-256 of
+`[listing_id, notice_id]`. A duplicate listing/notice pair is rejected even if
+the listing's mutable evidence snapshot would later change; distinct notices
+remain independently auditable.
 
-## Public contract API
+## Public API
 
-Writes: `register_listing(...)`, `request_assessment(...)`.
+Writes:
 
-Views: `get_listing(id)`, `get_assessment(id)`, `get_listing_ids()`, `get_assessment_ids()`, `get_attestation(id)`, and `contract_info()`.
+- `register_listing(marketplace_host, external_listing_id, product_id,
+  product_name, manufacturer, model, serial_or_lot, listing_url, evidence_url,
+  evidence_sha256)`
+- `request_assessment(listing_id, recall_url, recall_sha256)`
 
-The constructor accepts the deterministic authoritative recall-domain allowlist. There is no admin, governance, appeal, token, payment, reputation, chat, or subscription surface.
+Views:
+
+- `get_listing`, `get_assessment`, `get_listing_ids`, `get_assessment_ids`
+- `get_listing_assessments`, `get_attestation`, `contract_info`
+
+Views expose stable identity, owner, current derived state, assessment history,
+requester, notice identity, source authority semantics, verdict, finalized
+status, and evidence commitments.
 
 ## Frontend authority boundary
 
-The frontend calculates hashes and deterministic IDs for display and input validation, but never decides the verdict or listing state. It submits the two writes, reads contract state, and displays stored attestations. Backend/API summaries are non-authoritative and are not used by the contract.
+The frontend reads state and verdicts from contract views. It calculates hashes
+only as input conveniences and never derives a business verdict. Listing detail
+pages show `Not yet assessed`, `Cleared by consensus`, `Review required`, and
+`Blocked` distinctly; `UNASSESSED` is neutral and never presented as safe,
+verified, active, or approved. Any connected wallet can reach the challenge
+flow from a listing detail page.
 
-## Transaction lifecycle
+Every write uses:
 
-Every state-changing action follows: precondition read → broadcast exactly once → persist the hash immediately → reconcile that same hash → track provisional/terminal status → wait for `FINALIZED` → verify successful execution → read expected contract state → display the final outcome. `ACCEPTED`, a hash, or `FINALIZED` alone is not success. Refreshes, polling failures, ambiguous RPC responses, and process restarts never trigger rebroadcast.
+```text
+precondition read -> broadcast once -> persist hash -> reconcile same hash
+-> finalized -> verify execution -> read expected state
+```
 
-## Known limitations
+Refresh, wallet disconnect, ambiguous RPC responses, pending status, failed
+execution, and wrong network do not trigger a blind rebroadcast.
 
-V1 uses HTTPS domain policy and body SHA-256 commitments; it does not prove legal authority or cryptographically sign government pages. Mutable pages can change after an attestation, which is why the assessed digest is stored. Direct tests mock web/LLM hosts and do not replace a real Bradbury integration run. The frontend is a client-side wallet integration: it reads contract state, prepares evidence hashes, submits the two public writes, and displays finalized state. Browser support, wallet availability, and live Bradbury deployment remain release-preflight concerns.
+## Release boundary
+
+V1 production provenance remains in `PROVENANCE.md` and `docs/V1_FREEZE.md`.
+V2 is not deployed to Bradbury, does not replace the V1 contract, and does not
+change the V1 production Vercel project in this development phase. Live
+multi-validator testing remains a release gate.

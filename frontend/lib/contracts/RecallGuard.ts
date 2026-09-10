@@ -85,6 +85,11 @@ export class RecallGuardContract {
     return plain(await this.client.readContract({ address: this.address, functionName: "get_assessment", args: [id] })) as Assessment;
   }
 
+  async getListingAssessments(id: string): Promise<string[]> {
+    const result = await this.client.readContract({ address: this.address, functionName: "get_listing_assessments", args: [id] });
+    return Array.from(plain(result) || [], String);
+  }
+
   async getAttestation(id: string): Promise<Assessment> {
     return plain(await this.client.readContract({ address: this.address, functionName: "get_attestation", args: [id] })) as Assessment;
   }
@@ -94,6 +99,8 @@ export class RecallGuardContract {
   }
 
   async registerListing(input: {
+    marketplaceHost: string;
+    externalListingId: string;
     productId: string;
     productName: string;
     manufacturer: string;
@@ -110,7 +117,7 @@ export class RecallGuardContract {
     const existingIds = await this.getListingIds();
     if (existingIds.includes(id)) throw new Error("BUSINESS:DUPLICATE_LISTING");
 
-    const args = [input.productId, input.productName, input.manufacturer, input.model, input.serialOrLot, input.listingUrl, input.evidenceUrl, input.evidenceSha256];
+    const args = [input.marketplaceHost, input.externalListingId, input.productId, input.productName, input.manufacturer, input.model, input.serialOrLot, input.listingUrl, input.evidenceUrl, input.evidenceSha256];
     const result = await this.executeWrite("register_listing", args, { listingId: id }, async () => {
       const listing = await this.getListing(id);
       if (listing.id !== id) throw new Error("Expected listing state was not found after finality");
@@ -127,8 +134,7 @@ export class RecallGuardContract {
     this.resetClient(input.walletAddress);
     onProgress?.({ stage: "PRECONDITION_READ", detail: "Reading the listing before assessment" });
     const before = await this.getListing(input.listingId);
-    if (before.state === "BLOCKED") throw new Error("BUSINESS:ILLEGAL_STATE_TRANSITION");
-    const id = await assessmentId(input.listingId, input.recallUrl, input.recallSha256, before.evidence_sha256);
+    const id = await assessmentId(input.listingId, input.recallUrl, input.recallSha256);
     const args = [input.listingId, input.recallUrl, input.recallSha256];
     const result = await this.executeWrite("request_assessment", args, { listingId: input.listingId, assessmentId: id }, async () => {
       const assessment = await this.getAssessment(id);
@@ -158,7 +164,7 @@ export class RecallGuardContract {
     onProgress?.({ stage: "EXECUTION_VERIFIED", hash });
     try {
       await this.verifyExpectedState(pending.expected);
-      pendingTransactions.remove(hash);
+      pendingTransactions.confirm(hash);
       onProgress?.({ stage: "STATE_CONFIRMED", hash });
       return receipt;
     } catch (error) {
@@ -214,7 +220,7 @@ export class RecallGuardContract {
       onProgress?.({ stage: "FINALIZED", hash });
       onProgress?.({ stage: "EXECUTION_VERIFIED", hash });
       await expectedState();
-      pendingTransactions.remove(hash);
+      pendingTransactions.confirm(hash);
       onProgress?.({ stage: "STATE_CONFIRMED", hash });
       return { hash, receipt };
     } catch (error) {

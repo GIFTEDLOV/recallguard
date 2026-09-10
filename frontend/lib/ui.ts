@@ -1,8 +1,9 @@
 import type { ListingState, Verdict } from "./types";
 
 export const stateLabels: Record<ListingState, string> = {
-  ACTIVE: "Clear",
-  RECALL_REVIEW: "Review required",
+  UNASSESSED: "Not yet assessed",
+  CLEARED: "Cleared by consensus",
+  REVIEW_REQUIRED: "Review required",
   BLOCKED: "Blocked",
 };
 
@@ -62,7 +63,7 @@ export function humanizeError(error: unknown): { title: string; message: string 
     return { title: "Already registered", message: "This record already exists on the contract." };
   }
   if (normalized.includes("unauthorized")) {
-    return { title: "Wallet not authorized", message: "Connect the wallet that owns this listing to continue." };
+    return { title: "Wallet not authorized", message: "This wallet cannot perform that operation." };
   }
   return { title: "Could not complete request", message: raw.replace(/^Error:\s*/i, "") };
 }

@@ -3,8 +3,9 @@ import { humanizeError, hostFromUrl, labelForState, labelForVerdict } from "./ui
 
 describe("contract result presentation", () => {
   it("keeps exact enums behind human-readable labels", () => {
-    expect(labelForState("ACTIVE")).toBe("Clear");
-    expect(labelForState("RECALL_REVIEW")).toBe("Review required");
+    expect(labelForState("UNASSESSED")).toBe("Not yet assessed");
+    expect(labelForState("CLEARED")).toBe("Cleared by consensus");
+    expect(labelForState("REVIEW_REQUIRED")).toBe("Review required");
     expect(labelForState("BLOCKED")).toBe("Blocked");
     expect(labelForVerdict("AFFECTED")).toBe("Affected");
     expect(labelForVerdict("NOT_AFFECTED")).toBe("Not affected");

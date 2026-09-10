@@ -9,7 +9,7 @@ import {
 } from "genlayer-js/types";
 import { localnet } from "genlayer-js/chains";
 
-const domains = (process.env.RECALLGUARD_RECALL_DOMAINS || "cpsc.gov,fda.gov,recalls-rappels.canada.ca")
+const recallDomains = (process.env.RECALLGUARD_RECALL_DOMAINS || "cpsc.gov,fda.gov,recalls-rappels.canada.ca")
   .split(",")
   .map((domain) => domain.trim())
   .filter(Boolean);
@@ -17,11 +17,13 @@ const domains = (process.env.RECALLGUARD_RECALL_DOMAINS || "cpsc.gov,fda.gov,rec
 export default async function main(client: GenLayerClient<any>) {
   const filePath = path.resolve(process.cwd(), "contracts/recall_guard.py");
   const contractCode = new Uint8Array(readFileSync(filePath));
+  const marketplaceDomains = (process.env.RECALLGUARD_MARKETPLACE_DOMAINS || "amazon.com,ebay.com").split(",").map((domain) => domain.trim()).filter(Boolean);
+  const listingEvidenceDomains = (process.env.RECALLGUARD_LISTING_EVIDENCE_DOMAINS || "amazon.com,ebay.com,manufacturer.example").split(",").map((domain) => domain.trim()).filter(Boolean);
 
   await client.initializeConsensusSmartContract();
   const deployTransaction = await client.deployContract({
     code: contractCode,
-    args: [domains],
+    args: [recallDomains, marketplaceDomains, listingEvidenceDomains],
   });
   console.log(`RecallGuard deployment submitted: ${deployTransaction}`);
 

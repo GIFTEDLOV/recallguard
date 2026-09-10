@@ -57,7 +57,25 @@ describe("pending transaction persistence", () => {
   });
 
   it("fails closed when browser storage contains malformed data", () => {
-    storage.set("recallguard.pending-transactions.v1", "not-json");
+    storage.set("recallguard.pending-transactions.v2", "not-json");
     expect(pendingTransactions.list()).toEqual([]);
+  });
+
+  it("does not replay a V1 pending hash into the V2 recovery queue", () => {
+    storage.set("recallguard.pending-transactions.v1", JSON.stringify([entry("0xold-v1-hash")]));
+    expect(pendingTransactions.list()).toEqual([]);
+  });
+
+  it("moves a verified hash to the local confirmed index for operational detail views", () => {
+    pendingTransactions.save(entry("0xconfirmed"));
+    pendingTransactions.confirm("0xconfirmed");
+
+    expect(pendingTransactions.list()).toEqual([]);
+    expect(pendingTransactions.confirmed()).toEqual([{
+      hash: "0xconfirmed",
+      method: "request_assessment",
+      createdAt: "2026-09-07T00:00:00.000Z",
+      expected: { listingId: "listing-1", assessmentId: "assessment-1" },
+    }]);
   });
 });

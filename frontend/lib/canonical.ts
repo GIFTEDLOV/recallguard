@@ -1,45 +1,43 @@
-const SEPARATOR = "|";
-
-function assertCanonicalPart(value: string, field: string): void {
-  if (!value || value.includes(SEPARATOR) || value.includes("\0")) {
-    throw new Error(`${field} cannot be empty or contain canonical separators`);
+function assertPart(value: string, field: string, required = true): string {
+  if (typeof value !== "string" || value.includes("\0") || value.includes("|")) {
+    throw new Error(`${field} cannot contain reserved characters`);
   }
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, " ");
+  if (required && !normalized) throw new Error(`${field} cannot be empty`);
+  return normalized;
 }
 
-export function canonicalListing(values: {
+export interface StableListingIdentity {
+  marketplaceHost: string;
+  externalListingId: string;
   productId: string;
-  productName: string;
   manufacturer: string;
   model: string;
   serialOrLot: string;
-  listingUrl: string;
-  evidenceUrl: string;
-  evidenceSha256: string;
-}): string {
-  const parts = [
-    values.productId,
-    values.productName,
-    values.manufacturer,
-    values.model,
-    values.serialOrLot,
-    values.listingUrl,
-    values.evidenceUrl,
-    values.evidenceSha256,
-  ];
-  parts.forEach((part, index) => assertCanonicalPart(part, `listing field ${index}`));
-  return parts.join(SEPARATOR);
 }
 
-export function canonicalAssessment(
-  listingId: string,
-  recallUrl: string,
-  recallSha256: string,
-  listingEvidenceSha256: string,
-): string {
-  [listingId, recallUrl, recallSha256, listingEvidenceSha256].forEach((part, index) =>
-    assertCanonicalPart(part, `assessment field ${index}`),
-  );
-  return [listingId, recallUrl, recallSha256, listingEvidenceSha256].join(SEPARATOR);
+/** Must remain byte-for-byte equivalent to RecallGuard._canonical_listing_identity. */
+export function canonicalListingIdentity(values: StableListingIdentity): string {
+  return JSON.stringify([
+    assertPart(values.marketplaceHost, "marketplace host"),
+    assertPart(values.externalListingId, "external listing id"),
+    assertPart(values.productId, "product id"),
+    assertPart(values.manufacturer, "manufacturer"),
+    assertPart(values.model, "model"),
+    assertPart(values.serialOrLot, "serial or lot", false),
+  ]);
+}
+
+export function canonicalHttpsUrl(value: string): string {
+  const url = new URL(value);
+  if (url.protocol !== "https:") throw new Error("HTTPS is required");
+  url.hostname = url.hostname.toLowerCase();
+  if (url.pathname === "/") url.pathname = "";
+  return url.toString().replace(/\/$/, "");
+}
+
+export function canonicalNotice(recallUrl: string, recallSha256: string): string {
+  return JSON.stringify([canonicalHttpsUrl(recallUrl), assertPart(recallSha256, "recall SHA-256")]);
 }
 
 export async function sha256Hex(value: string): Promise<string> {
@@ -51,15 +49,11 @@ export async function sha256Hex(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function listingId(values: Parameters<typeof canonicalListing>[0]): Promise<string> {
-  return sha256Hex(canonicalListing(values));
+export function listingId(values: StableListingIdentity): Promise<string> {
+  return sha256Hex(canonicalListingIdentity(values));
 }
 
-export async function assessmentId(
-  listing: string,
-  recallUrl: string,
-  recallSha256: string,
-  listingEvidenceSha256: string,
-): Promise<string> {
-  return sha256Hex(canonicalAssessment(listing, recallUrl, recallSha256, listingEvidenceSha256));
+export async function assessmentId(listing: string, recallUrl: string, recallSha256: string): Promise<string> {
+  const noticeId = await sha256Hex(canonicalNotice(recallUrl, recallSha256));
+  return sha256Hex(JSON.stringify([listing, noticeId]));
 }
