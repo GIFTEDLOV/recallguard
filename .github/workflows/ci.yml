@@ -26,17 +26,17 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 
+      - name: Prepare GenVM SDK
+        run: genvm-lint setup --contract contracts/recall_guard.py
+
       - name: Run Direct Mode tests
         run: python -m pytest -q
 
       - name: Run decision-critical mutation tests
         run: python scripts/v2_mutation_test.py
 
-      - name: Run GenVM lint
+      - name: Run GenVM checks
         run: genvm-lint check contracts/recall_guard.py
-
-      - name: Run GenVM validation
-        run: genvm-lint validate contracts/recall_guard.py
 
       - name: Verify contract source and deployment provenance
         shell: bash
