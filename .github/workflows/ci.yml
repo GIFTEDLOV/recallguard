@@ -26,26 +26,38 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 
-      - name: Prepare GenVM SDK
-        run: genvm-lint setup --contract contracts/recall_guard.py
-
       - name: Run Direct Mode tests
         run: python -m pytest -q
 
       - name: Run decision-critical mutation tests
         run: python scripts/v2_mutation_test.py
 
-      - name: Run GenVM checks
-        run: genvm-lint check contracts/recall_guard.py
+      - name: Run GenVM AST lint
+        run: genvm-lint lint contracts/recall_guard.py
+
+      - name: Run GenVM semantic validation
+        shell: bash
+        run: |
+          semantic_venv="${RUNNER_TEMP}/recallguard-genvm-semantic"
+          python -m venv "$semantic_venv"
+          "$semantic_venv/bin/python" -m pip install --upgrade pip
+          "$semantic_venv/bin/python" -m pip install --no-cache-dir "genvm-linter==0.11.1rc2"
+          env GENVM_VERSION=v0.6.0-rc5 "$semantic_venv/bin/genvm-lint" setup --contract contracts/recall_guard.py
+          env GENVM_VERSION=v0.6.0-rc5 "$semantic_venv/bin/genvm-lint" validate contracts/recall_guard.py
 
       - name: Verify contract source and deployment provenance
         shell: bash
         run: |
-          grep -Fq '6b1e595b98eaf4eaab2e98b97176dfb3b796ed43788884ee22ec05c93e9bdc6f' docs/V1_FREEZE.md
+          test "$(sha256sum contracts/recall_guard.py | awk '{print $1}')" = '814fd01cd7d1c1d6ab3c2789a54ee76432bdc1e8653b4658b2dfc2348b0a3f3d'
+          grep -Fq '814fd01cd7d1c1d6ab3c2789a54ee76432bdc1e8653b4658b2dfc2348b0a3f3d' PROVENANCE.md
+          grep -Fq '0x6E2EAfF16124c513022Ad85751fD4dfF8d7e5580' PROVENANCE.md
+          grep -Fq '61997' PROVENANCE.md
           grep -Fq 'v2-stable-marketplace-reference' contracts/recall_guard.py
-          grep -Fq 'v2-authority-notice-reference' contracts/recall_guard.py
+          grep -Fq 'v2-cpsc-recall-number' contracts/recall_guard.py
           grep -Fq 'STATE_UNASSESSED' contracts/recall_guard.py
-          grep -Fq 'get_listing_assessments' contracts/recall_guard.py
+          grep -Fq 'STATE_CLEARED' contracts/recall_guard.py
+          grep -Fq 'STATE_REVIEW_REQUIRED' contracts/recall_guard.py
+          grep -Fq 'STATE_BLOCKED' contracts/recall_guard.py
           grep -Fq '"recall_domains": ["saferproducts.gov"]' config/v2_source_policy.json
           grep -Fq '"marketplace_domains": ["amazon.com"]' config/v2_source_policy.json
 
