@@ -110,7 +110,7 @@ def mock_cpsc(direct_vm, record=None, *, response_body=None, status=200, recall_
 def mock_verdict(direct_vm, verdict="NOT_AFFECTED"):
     direct_vm.mock_llm(
         r"RecallGuard applicability evaluator",
-        json.dumps({"verdict": verdict}, separators=(",", ":")),
+        json.dumps(json.dumps({"verdict": verdict}, separators=(",", ":"))),
     )
 
 

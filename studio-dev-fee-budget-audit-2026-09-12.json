@@ -1,0 +1,213 @@
+{
+  "contract_sha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+  "profile_before_correction": {
+    "version": 1,
+    "network": "localnet",
+    "chain_id": 61999,
+    "measured_at": "2026-09-12T16:39:50Z",
+    "headroom": "1.25",
+    "deploy": {
+      "leaderTimeunitsAllocation": "125",
+      "validatorTimeunitsAllocation": "250",
+      "executionBudgetPerRound": "98614375000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    }
+  },
+  "local_success_receipt": {
+    "tx": "0xe99cc5db8212741bcfc0d70d139fa68b56ed168b94fc17bfe1e089663b657d81",
+    "status": "FINALIZED",
+    "execution": "FINISHED_WITH_RETURN",
+    "fees_distribution": {
+      "leaderTimeunitsAllocation": "100",
+      "validatorTimeunitsAllocation": "200",
+      "executionBudgetPerRound": "25000000000000000",
+      "totalMessageFees": "0",
+      "rotations": [1],
+      "appealRounds": 0,
+      "receiptFeeMaxGasPrice": 300000000,
+      "storageFeeMaxGasPrice": 300000000
+    },
+    "locked_prices": {
+      "genPerTimeUnit": 1,
+      "receiptGasPrice": 250000000,
+      "storageUnitPrice": 250000000
+    },
+    "genvm_bucket_consumed": {
+      "execution": 128141500000000,
+      "message": 0,
+      "nondeterministicOutputBytes": 0,
+      "submittedMessageBytes": 0
+    },
+    "genvm_execution_budget_remaining": "24871858500000000",
+    "chargeable_execution": {
+      "receipt": 78628000000000,
+      "storage": 263500000000,
+      "totalExecution": 78891500000000
+    },
+    "execution_consumed": 78891500000000,
+    "message_receipt_consumed": 0,
+    "storage_consumed": 263500000000,
+    "nondeterministic_output_consumed": 0,
+    "message_fees_consumed": 0,
+    "leader_timeunits_used": 2,
+    "validator_timeunits_used": 12
+  },
+  "studio_dev_failed_receipt": {
+    "tx": "0xb20401a965f1bc4aab48016196f9a6cc4515e2de613b07e6eeccc649805c65a6",
+    "status": "FINALIZED",
+    "execution": "FINISHED_WITH_ERROR",
+    "fees_distribution": {
+      "leaderTimeunitsAllocation": "125",
+      "validatorTimeunitsAllocation": "250",
+      "executionBudgetPerRound": "98614375000000",
+      "totalMessageFees": "0",
+      "rotations": [1, 1],
+      "appealRounds": 1,
+      "receiptFeeMaxGasPrice": 300000000,
+      "storageFeeMaxGasPrice": 300000000
+    },
+    "locked_prices": {
+      "genPerTimeUnit": 1,
+      "receiptGasPrice": 250000000,
+      "storageUnitPrice": 250000000
+    },
+    "genvm_bucket_consumed": {
+      "execution": 0,
+      "message": 0,
+      "nondeterministicOutputBytes": 0,
+      "submittedMessageBytes": 0
+    },
+    "genvm_data_fees_remaining": [
+      "98614375000000",
+      0,
+      "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+      "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+    ],
+    "chargeable_execution": {
+      "receipt": 78628000000000,
+      "storage": 0,
+      "totalExecution": 78628000000000
+    },
+    "genvm_execution_consumed": 0,
+    "message_receipt_consumed": 0,
+    "storage_consumed": 0,
+    "nondeterministic_output_consumed": 0,
+    "message_fees_consumed": 0,
+    "error": "out_of receipt message",
+    "evm_transaction_found": true,
+    "evm_receipt_found": true,
+    "evm_receipt_contract_address": null
+  },
+  "studio_dev_fee_policy": {
+    "genPerTimeUnit": "1",
+    "storageUnitPrice": "250000000",
+    "receiptGasPrice": "250000000",
+    "messageFeeParamsBudgetFloor": "76548000000000",
+    "genvmStartBudgetFloor": "127878000000000"
+  },
+  "root_cause": {
+    "profile_budget": "98614375000000",
+    "required_start_floor": "127878000000000",
+    "shortfall": "29263625000000",
+    "observed_local_genvm_execution": "128141500000000",
+    "minimum_multiplier_over_chargeable_local_measurement": "1.6242751120209402",
+    "classification": "A_PROFILE_EXECUTION_BUDGET_TOO_SMALL",
+    "policy_difference_local_vs_studio_dev": false,
+    "profile_applied_correctly": true
+  },
+  "source_trace": {
+    "runner_error": "/app/backend/node/genvm/origin/public_abi.py:_VmErrorOutOfReceiptMessage.val",
+    "budget_formula": "/app/backend/protocol_rpc/fees.py:StudioFeePolicy.genvm_start_budget_floor",
+    "genvm_reservation_path": "/app/backend/protocol_rpc/endpoints.py:_effective_simulation_fee_accounting_for_genvm"
+  },
+  "corrected_profile": {
+    "headroom": "2.0",
+    "deploy": {
+      "leaderTimeunitsAllocation": "200",
+      "validatorTimeunitsAllocation": "400",
+      "executionBudgetPerRound": "157783000000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "method_entries_preserved_from_prior_finalized_measurements": true
+  },
+  "predeploy_estimate": {
+    "rpc": "https://studio-dev.genlayer.com/api",
+    "chain_id": 61997,
+    "executionBudgetPerRound": "157783000000000",
+    "receiptFeeMaxGasPrice": "300000000",
+    "storageFeeMaxGasPrice": "300000000",
+    "feeValue": "788915000066658"
+  },
+  "corrected_studio_dev_attempt": {
+    "tx": "0xc74fd822fdd20fd0347a3789b2a7a84329f894b3c10125310e8512b8a3ca8a36",
+    "status": "FINALIZED",
+    "execution": "FINISHED_WITH_ERROR",
+    "submitted_execution_budget": "157783000000000",
+    "genvm_execution_consumed": "128140250000000",
+    "genvm_execution_remaining": "29642750000000",
+    "message_receipt_consumed": 0,
+    "storage_consumed": 0,
+    "nondeterministic_output_consumed": 0,
+    "error": "EXPECTED:INVALID_DOMAIN_POLICY",
+    "receipt_contract_address": null,
+    "profile_applied_correctly": true,
+    "leader_result_base64": "AUVYUEVDVEVEOklOVkFMSURfRE9NQUlOX1BPTElDWQ==",
+    "studio_calldata_base64": "DgRhcmdzFZwBW3NhZmVycHJvZHVjdHMuZ292XWRbYW1hem9uLmNvbV0=",
+    "local_success_calldata_base64": "DgRhcmdzFQ2MAXNhZmVycHJvZHVjdHMuZ292DVRhbWF6b24uY29t",
+    "calldata_finding": "Studio CLI calldata contains bracketed array text; local successful gltest calldata contains two encoded array values. The contract consequently rejected the CLI argument shape before deployment state was created."
+  },
+  "cli_parser_validation": {
+    "cli_version": "0.40.0-rc.3",
+    "cli_path": "C:\\Users\\DELL\\AppData\\Roaming\\npm\\node_modules\\genlayer\\dist\\index.js",
+    "arg0_type": "Array",
+    "arg0_value": ["saferproducts.gov"],
+    "arg1_type": "Array",
+    "arg1_value": ["amazon.com"],
+    "array_checks": true
+  },
+  "local_cli_array_validation": {
+    "rpc": "http://127.0.0.1:4000/api",
+    "tx": "0xa0c254bd1063a226b1ff3b927cf18eaea7de6c74d437b8997f3357f595cb6211",
+    "status": "FINALIZED",
+    "execution": "FINISHED_WITH_RETURN",
+    "contract_address": "0xC6a967E0b0D12c109CD6367F245B422Ae05565A4",
+    "calldata_base64": "DgRhcmdzFQ2MAXNhZmVycHJvZHVjdHMuZ292DVRhbWF6b24uY29t",
+    "calldata_readable": "{\"args\":[[\"saferproducts.gov\",],[\"amazon.com\",],]}",
+    "authorized_recall_domains": ["saferproducts.gov"],
+    "authorized_marketplace_domains": ["amazon.com"],
+    "array_encoding_verified": true
+  },
+  "studio_dev_final_array_encoding_attempt": {
+    "rpc": "https://studio-dev.genlayer.com/api",
+    "chain_id": 61997,
+    "tx": "0x39fabf85a092801bb31bcc9e6a952beb252dcedf10c79d93f391e46ad3ce704c",
+    "status": "FINALIZED",
+    "execution": "FINISHED_WITH_RETURN",
+    "contract_address": "0xfD7C6d9FB229e5bD14677505E9Db2F15A7D45e04",
+    "calldata_base64": "DgRhcmdzFQ2MAXNhZmVycHJvZHVjdHMuZ292DVRhbWF6b24uY29t",
+    "calldata_readable": "{\"args\":[[\"saferproducts.gov\",],[\"amazon.com\",],]}",
+    "authorized_recall_domains": ["saferproducts.gov"],
+    "authorized_marketplace_domains": ["amazon.com"],
+    "contract_code_bytes": 33364,
+    "deployed_source_sha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+    "deployed_source_sha_match": true,
+    "profile_applied_correctly": true,
+    "method_surface_verified": true,
+    "contract_info_verified": true
+  },
+  "final_state": {
+    "studio_dev_attempt_count": 2,
+    "third_deployment_attempted": false,
+    "contract_info_verified": false,
+    "source_parity_verified": false
+  },
+  "current_state": {
+    "studio_dev_array_encoding_attempted": true,
+    "third_deployment_attempted_after_prior_audit": false,
+    "no_owner_or_challenger_writes_after_deployment": true,
+    "contract_info_verified": true,
+    "source_parity_verified": true
+  }
+}

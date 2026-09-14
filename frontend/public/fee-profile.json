@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "network": "studio-dev",
+  "measuredAt": "2026-09-14T00:00:00Z",
+  "chainId": 61997,
+  "deploy": {
+    "leaderTimeunitsAllocation": "200",
+    "validatorTimeunitsAllocation": "400",
+    "executionBudgetPerRound": "157783000000000",
+    "totalMessageFees": "0",
+    "rotationsPerRound": "1"
+  },
+  "methods": {
+    "register_listing": {
+      "leaderTimeunitsAllocation": "200",
+      "validatorTimeunitsAllocation": "400",
+      "executionBudgetPerRound": "157268500000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    },
+    "request_assessment": {
+      "leaderTimeunitsAllocation": "200",
+      "validatorTimeunitsAllocation": "400",
+      "executionBudgetPerRound": "158846500000000",
+      "totalMessageFees": "0",
+      "rotationsPerRound": "1"
+    }
+  }
+}

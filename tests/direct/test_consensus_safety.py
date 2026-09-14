@@ -64,7 +64,7 @@ def test_validator_rejects_extra_leader_fields(direct_vm, direct_deploy):
 
 def test_leader_user_error_is_not_read_as_calldata(direct_deploy):
     contract = deploy_recall_guard(direct_deploy)
-    from genlayer import gl
+    import genlayer as gl
 
     error = gl.vm.UserError("SOURCE:CPSC_INVALID_JSON")
     assert contract._same_error_class(error, lambda: (_ for _ in ()).throw(gl.vm.UserError("SOURCE:CPSC_INVALID_JSON"))) is True

@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "genlayer-js";
-import { testnetBradbury } from "genlayer-js/chains";
+import { studioDevnet } from "genlayer-js/chains";
 
 export interface EthereumProvider {
   isMetaMask?: boolean;
@@ -17,11 +17,11 @@ declare global {
 }
 
 export const GENLAYER_RPC_URL =
-  process.env.NEXT_PUBLIC_GENLAYER_RPC_URL || "https://rpc-bradbury.genlayer.com";
-export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
-export const GENLAYER_NETWORK = "testnetBradbury" as const;
-export const GENLAYER_NETWORK_LABEL = "GenLayer Bradbury";
-export const EXPECTED_CHAIN_ID = `0x${testnetBradbury.id.toString(16)}`;
+  process.env.NEXT_PUBLIC_GENLAYER_RPC_URL || "https://studio-dev.genlayer.com/api";
+export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x6E2EAfF16124c513022Ad85751fD4dfF8d7e5580";
+export const GENLAYER_NETWORK = "studioDevnet" as const;
+export const GENLAYER_NETWORK_LABEL = "GenLayer Studio-dev";
+export const EXPECTED_CHAIN_ID = `0x${studioDevnet.id.toString(16)}`;
 
 export function getEthereumProvider(): EthereumProvider | null {
   return typeof window === "undefined" ? null : window.ethereum || null;
@@ -57,7 +57,7 @@ export async function switchToGenLayerNetwork(walletAddress?: string): Promise<v
 
 export function createGenLayerClient(address?: string) {
   const config: Record<string, unknown> = {
-    chain: testnetBradbury,
+    chain: studioDevnet,
     endpoint: GENLAYER_RPC_URL,
   };
   if (address) {
@@ -66,8 +66,8 @@ export function createGenLayerClient(address?: string) {
     config.account = address as `0x${string}`;
     config.provider = provider;
   }
-  // genlayer-js v2 owns calldata encoding, transaction envelopes, and fee
-  // policy resolution. Keep this wrapper limited to the official client
-  // configuration so no application code can drift back to v1 wire formats.
+  // RC genlayer-js owns Studio-dev calldata encoding and transaction tracking.
+  // Keep this wrapper limited to official client configuration and the
+  // injected wallet.
   return createClient(config as never);
 }

@@ -1,0 +1,27 @@
+{
+  "network": "studionet-compatible-local",
+  "rpc": "http://127.0.0.1:4000/api",
+  "chainId": 61999,
+  "contract": "0xC6a967E0b0D12c109CD6367F245B422Ae05565A4",
+  "listingId": "fc579fdf19698bf917bb7cc5a9e3d29a99fd45911d85306008e34c99cceaa3e0",
+  "accountName": "beacon-final-deployer",
+  "account": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "recallIdentifier": "26741",
+  "writePath": "genlayer-js 1.1.8 createClient/writeContract",
+  "cliWrapperUsed": false,
+  "nativeStringCalldataVerified": true,
+  "localEvmSubmissionHash": "0xcf79427c19adb92aa7c1a020ed7a661f9ef2edd1bd159e4b88b9b54bb2ebc8a1",
+  "genlayerProtocolTransactionIdReturned": false,
+  "error": "Transaction reverted: EVM tx 0xcf79427c19adb92aa7c1a020ed7a661f9ef2edd1bd159e4b88b9b54bb2ebc8a1 to consensus contract 0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575 was reverted.",
+  "receipt": {
+    "status": "0x0",
+    "revertReason": "FeesDistributionMissing",
+    "gasUsed": "0x0",
+    "contractAddress": null,
+    "logs": []
+  },
+  "postFailureState": {
+    "listingState": "UNASSESSED",
+    "assessmentIds": []
+  }
+}

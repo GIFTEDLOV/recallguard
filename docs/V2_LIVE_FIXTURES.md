@@ -1,4 +1,4 @@
-# V2 pre-live semantic fixtures
+# V2 semantic fixtures and live proof
 
 The frozen manifest is
 [`fixtures/v2_live_fixtures.json`](../fixtures/v2_live_fixtures.json). It
@@ -8,7 +8,9 @@ reference IDs.
 
 - Fixture A: account A registers the facts; unrelated account B requests the
   check for a scented Mistolin cleaner with a matching `PR01-25100` date code;
-  expected `AFFECTED` -> `BLOCKED`.
+  expected `AFFECTED` -> `BLOCKED`. Its declared marketplace host is
+  `www.amazon.com`, matching the listing URL host and remaining admitted by the
+  deployed `amazon.com` parent-domain policy.
 - Fixture B: registered facts clearly exclude the same authoritative scope;
   the product is an unrelated helmet; expected `NOT_AFFECTED` -> `CLEARED`.
 - Fixture C: the authoritative record is admissible but the registered facts
@@ -24,6 +26,9 @@ only. They are not retrieved or hashed by the contract.
 Fixture C is not a network, timeout, malformed-source, or consensus-failure
 simulation. Any such failure must produce no assessment and no state mutation.
 
-The fixtures are pre-live proof inputs, not claims of protocol finality. The
-live semantic run remains blocked until the exact CPSC adapter passes the
-five-observation gate under one coherent current GenLayer toolchain.
+The fixture manifest remains the deterministic semantic regression set. Fixture
+A is also the approved live steward proof: on the authoritative Studio-dev
+contract it was registered by the owner and assessed by the distinct challenger,
+returning `AFFECTED` -> `BLOCKED` with verified history and attestation. The
+canonical live evidence is
+[`deploy/evidence/studio-dev-steward-proof-schema-fix-2026-09-14.json`](../deploy/evidence/studio-dev-steward-proof-schema-fix-2026-09-14.json).

@@ -1,0 +1,23 @@
+{
+  "network": "studio-dev",
+  "rpc": "https://studio-dev.genlayer.com/api",
+  "chainId": 61997,
+  "cliVersion": "0.40.0-rc.3",
+  "genlayerJsVersion": "2.0.0-rc.1",
+  "sourceSha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+  "constructorArgsIntended": [
+    ["saferproducts.gov"],
+    ["amazon.com"]
+  ],
+  "feeProfilePath": "frontend/public/fee-profile.json",
+  "feeProfileDeployExecutionBudgetPerRound": "157783000000000",
+  "owner": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "transactionId": "0x5a9288dc3065cd45690db2b6f3828b4677434156b7530df8b4464c9d415c2398",
+  "status": "FINALIZED",
+  "execution": "FINISHED_WITH_ERROR",
+  "error": "EXPECTED:INVALID_DOMAIN_POLICY",
+  "decodedCalldataReadable": "{\"args\":[\"[saferproducts.gov]\",\"[amazon.com]\",]}",
+  "constructorRuntimeTypes": ["string", "string"],
+  "broadcastCount": 1,
+  "redeployAttempted": false
+}

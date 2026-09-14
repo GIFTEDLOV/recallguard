@@ -1,0 +1,33 @@
+{
+  "network": "studio-dev",
+  "rpc": "https://studio-dev.genlayer.com/api",
+  "chainId": 61997,
+  "client": "genlayer-js 2.0.0-rc.1",
+  "broadcastPath": "programmatic genlayer-js client.deployContract",
+  "cliUsedForBroadcast": false,
+  "contractSha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+  "constructorArgs": [
+    ["saferproducts.gov"],
+    ["amazon.com"]
+  ],
+  "preparedCalldataVerified": true,
+  "decodedConstructorArgTypes": ["array", "array"],
+  "serializedTransactionBytes": 33411,
+  "feeDistribution": {
+    "leaderTimeunitsAllocation": "200",
+    "validatorTimeunitsAllocation": "400",
+    "appealRounds": "1",
+    "executionBudgetPerRound": "157783000000000",
+    "executionConsumed": "0",
+    "totalMessageFees": "0",
+    "rotations": ["1", "1"],
+    "maxPriceGenPerTimeUnit": "2",
+    "storageFeeMaxGasPrice": "300000000",
+    "receiptFeeMaxGasPrice": "300000000"
+  },
+  "feeValue": "788915000066658",
+  "genlayerProtocolTxId": "0x8dd3dd1eb183f565834ca7c403e1ee93b65aa4369d63228e2066580959d51c83",
+  "outerEvmTxHash": "0x8dd3dd1eb183f565834ca7c403e1ee93b65aa4369d63228e2066580959d51c83",
+  "broadcastCount": 1,
+  "redeployAttempted": false
+}

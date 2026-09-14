@@ -1,4 +1,4 @@
-# { "Seq": [{ "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }] }
+# { "Seq": [{ "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }] }
 
 """RecallGuard V2: fixed-authority, permissionless CPSC applicability checks.
 
@@ -20,11 +20,13 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable, cast
 
-from genlayer import *
+import genlayer as gl
+from genlayer.types import Address
 
 
 MAX_ID_LENGTH = 128
 MAX_FIELD_LENGTH = 256
+MAX_CPSC_FIELD_LENGTH = 1024
 MAX_URL_LENGTH = 512
 MAX_RECALL_IDENTIFIER_LENGTH = 32
 MAX_CPSC_RESPONSE_BYTES = 24_000
@@ -56,7 +58,7 @@ ERROR_SEMANTIC = "SEMANTIC:"
 ERROR_CONSENSUS = "CONSENSUS:"
 
 
-@allow_storage
+@gl.storage.allow
 @dataclass
 class Listing:
     id: str
@@ -73,7 +75,7 @@ class Listing:
     state: str
 
 
-@allow_storage
+@gl.storage.allow
 @dataclass
 class Assessment:
     id: str
@@ -91,18 +93,18 @@ class Assessment:
     source_policy_version: str
 
 
-class RecallGuard(gl.Contract):
-    authorized_recall_domains: DynArray[str]
-    authorized_marketplace_domains: DynArray[str]
-    listings: TreeMap[str, Listing]
-    listing_ids: DynArray[str]
-    assessments: TreeMap[str, Assessment]
-    assessment_ids: DynArray[str]
+class RecallGuard(gl.contract.Contract):
+    authorized_recall_domains: gl.storage.DynArray[str]
+    authorized_marketplace_domains: gl.storage.DynArray[str]
+    listings: gl.storage.TreeMap[str, Listing]
+    listing_ids: gl.storage.DynArray[str]
+    assessments: gl.storage.TreeMap[str, Assessment]
+    assessment_ids: gl.storage.DynArray[str]
 
     def __init__(
         self,
-        authorized_recall_domains: DynArray[str],
-        authorized_marketplace_domains: DynArray[str],
+        authorized_recall_domains: gl.storage.DynArray[str],
+        authorized_marketplace_domains: gl.storage.DynArray[str],
     ):
         self._load_domains(authorized_recall_domains, self.authorized_recall_domains)
         self._load_domains(authorized_marketplace_domains, self.authorized_marketplace_domains)
@@ -111,7 +113,7 @@ class RecallGuard(gl.Contract):
     def _fail(self, message: str):
         raise gl.vm.UserError(message)
 
-    def _load_domains(self, domains: DynArray[str], destination: DynArray[str]):
+    def _load_domains(self, domains: gl.storage.DynArray[str], destination: gl.storage.DynArray[str]):
         if len(domains) == 0:
             self._fail("EXPECTED:EMPTY_DOMAIN_ALLOWLIST")
         for domain in domains:
@@ -199,7 +201,7 @@ class RecallGuard(gl.Contract):
             suffix = ""
         return "https://" + host + suffix
 
-    def _is_authorized_host(self, url: str, domains: DynArray[str]) -> bool:
+    def _is_authorized_host(self, url: str, domains: gl.storage.DynArray[str]) -> bool:
         host = self._host(url)
         for configured_domain in domains:
             if host == configured_domain or host.endswith("." + configured_domain):
@@ -264,6 +266,11 @@ class RecallGuard(gl.Contract):
             raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_" + field)
         return value
 
+    def _bounded_cpsc_string(self, value: Any, field: str) -> str:
+        if not isinstance(value, str) or len(value) > MAX_CPSC_FIELD_LENGTH:
+            raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_" + field)
+        return value
+
     def _bounded_collection(self, value: Any, field: str) -> list[Any]:
         if not isinstance(value, list):
             raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_" + field)
@@ -282,12 +289,12 @@ class RecallGuard(gl.Contract):
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_" + field)
         if not isinstance(record["RecallID"], int) or isinstance(record["RecallID"], bool):
             raise gl.vm.UserError(ERROR_SOURCE + "INVALID_SCHEMA_RecallID")
-        recall_number = self._bounded_string(record["RecallNumber"], "RecallNumber").strip().upper()
+        recall_number = self._bounded_cpsc_string(record["RecallNumber"], "RecallNumber").strip().upper()
         if recall_number != requested_identifier:
             raise gl.vm.UserError(ERROR_SOURCE + "RECALL_IDENTIFIER_MISMATCH")
-        recall_date = self._bounded_string(record["RecallDate"], "RecallDate").strip()
-        title = self._bounded_string(record["Title"], "Title").strip()
-        description = self._bounded_string(record["Description"], "Description").strip()
+        recall_date = self._bounded_cpsc_string(record["RecallDate"], "RecallDate").strip()
+        title = self._bounded_cpsc_string(record["Title"], "Title").strip()
+        description = self._bounded_cpsc_string(record["Description"], "Description").strip()
         if len(recall_date) == 0 or len(title) == 0 or len(description) == 0:
             raise gl.vm.UserError(ERROR_SOURCE + "EMPTY_DECISION_FIELD")
 
@@ -300,10 +307,10 @@ class RecallGuard(gl.Contract):
                 if field not in product:
                     raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_" + field)
             products.append({
-                "name": self._bounded_string(product.get("Name", ""), "ProductName").strip(),
-                "description": self._bounded_string(product.get("Description", ""), "ProductDescription").strip(),
-                "model": self._bounded_string(product.get("Model", ""), "ProductModel").strip(),
-                "type": self._bounded_string(product.get("Type", ""), "ProductType").strip(),
+                "name": self._bounded_cpsc_string(product.get("Name", ""), "ProductName").strip(),
+                "description": self._bounded_cpsc_string(product.get("Description", ""), "ProductDescription").strip(),
+                "model": self._bounded_cpsc_string(product.get("Model", ""), "ProductModel").strip(),
+                "type": self._bounded_cpsc_string(product.get("Type", ""), "ProductType").strip(),
             })
         manufacturers: list[dict[str, str]] = []
         for manufacturer in self._bounded_collection(record["Manufacturers"], "Manufacturers"):
@@ -312,7 +319,7 @@ class RecallGuard(gl.Contract):
             manufacturer = cast(dict[str, Any], manufacturer)
             if "Name" not in manufacturer:
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_ManufacturerName")
-            manufacturers.append({"name": self._bounded_string(manufacturer.get("Name", ""), "ManufacturerName").strip()})
+            manufacturers.append({"name": self._bounded_cpsc_string(manufacturer.get("Name", ""), "ManufacturerName").strip()})
         upcs: list[str] = []
         for product_upc in self._bounded_collection(record["ProductUPCs"], "ProductUPCs"):
             if not isinstance(product_upc, dict):
@@ -320,7 +327,7 @@ class RecallGuard(gl.Contract):
             product_upc = cast(dict[str, Any], product_upc)
             if "UPC" not in product_upc:
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_UPC")
-            upcs.append(self._bounded_string(product_upc.get("UPC", ""), "UPC").strip())
+            upcs.append(self._bounded_cpsc_string(product_upc.get("UPC", ""), "UPC").strip())
         hazards: list[str] = []
         for hazard in self._bounded_collection(record["Hazards"], "Hazards"):
             if not isinstance(hazard, dict):
@@ -328,7 +335,7 @@ class RecallGuard(gl.Contract):
             hazard = cast(dict[str, Any], hazard)
             if "Name" not in hazard:
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_HazardName")
-            hazards.append(self._bounded_string(hazard.get("Name", ""), "HazardName").strip())
+            hazards.append(self._bounded_cpsc_string(hazard.get("Name", ""), "HazardName").strip())
         remedies: list[str] = []
         for remedy in self._bounded_collection(record["Remedies"], "Remedies"):
             if not isinstance(remedy, dict):
@@ -336,7 +343,7 @@ class RecallGuard(gl.Contract):
             remedy = cast(dict[str, Any], remedy)
             if "Name" not in remedy:
                 raise gl.vm.UserError(ERROR_SOURCE + "MISSING_SCHEMA_RemedyName")
-            remedies.append(self._bounded_string(remedy.get("Name", ""), "RemedyName").strip())
+            remedies.append(self._bounded_cpsc_string(remedy.get("Name", ""), "RemedyName").strip())
 
         products.sort(key=lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
         manufacturers.sort(key=lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
@@ -462,14 +469,14 @@ Do not add reasoning, confidence, sources, or any other field.
         }
 
     def _same_error_class(self, leader_result: Any, leader_fn: Callable[[], Any]) -> bool:
-        leader_message = getattr(leader_result, "message", "")
+        leader_message = getattr(leader_result, "message", getattr(leader_result, "data", ""))
         if not isinstance(leader_message, str):
             return False
         try:
             leader_fn()
             return False
         except gl.vm.UserError as error:
-            validator_message = getattr(error, "message", str(error))
+            validator_message = getattr(error, "message", getattr(error, "data", str(error)))
             if leader_message.startswith(ERROR_EXPECTED) or leader_message.startswith(ERROR_SOURCE):
                 return validator_message == leader_message
             if leader_message.startswith(ERROR_TRANSIENT):
@@ -565,7 +572,7 @@ Do not add reasoning, confidence, sources, or any other field.
             try:
                 model_result = gl.nondet.exec_prompt(
                     self._decision_prompt(canonical_facts, listing_in_memory),
-                    response_format="json",
+                    response_format="text",
                 )
             except Exception:
                 raise gl.vm.UserError(ERROR_SEMANTIC + "MODEL_EXECUTION_FAILED")
@@ -582,7 +589,7 @@ Do not add reasoning, confidence, sources, or any other field.
                     validator_facts = self._parse_cpsc_response(response, normalized_recall_identifier)
                     validator_model_result = gl.nondet.exec_prompt(
                         self._decision_prompt(validator_facts, listing_in_memory),
-                        response_format="json",
+                        response_format="text",
                     )
                     validator_data = self._assessment_result(
                         normalized_recall_identifier,
@@ -611,9 +618,9 @@ Do not add reasoning, confidence, sources, or any other field.
             return False
 
         try:
-            result: Any = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            result: Any = gl.vm.run_nondet(leader_fn, validator_fn)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
         except gl.vm.UserError as error:
-            self._fail(getattr(error, "message", str(error)))
+            self._fail(getattr(error, "message", getattr(error, "data", str(error))))
         except Exception:
             self._fail(ERROR_CONSENSUS + "DISAGREEMENT_OR_TIMEOUT")
 
@@ -668,11 +675,11 @@ Do not add reasoning, confidence, sources, or any other field.
         return self.assessments[assessment_id]
 
     @gl.public.view  # pyright: ignore[reportUnknownMemberType]
-    def get_listing_ids(self) -> DynArray[str]:
+    def get_listing_ids(self) -> gl.storage.DynArray[str]:
         return self.listing_ids
 
     @gl.public.view  # pyright: ignore[reportUnknownMemberType]
-    def get_assessment_ids(self) -> DynArray[str]:
+    def get_assessment_ids(self) -> gl.storage.DynArray[str]:
         return self.assessment_ids
 
     @gl.public.view  # pyright: ignore[reportUnknownMemberType]

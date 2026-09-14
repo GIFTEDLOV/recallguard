@@ -11,11 +11,16 @@ import {
 } from "./client";
 
 describe("production GenLayer configuration", () => {
-  it("defaults to the Bradbury network and RPC", () => {
-    expect(GENLAYER_NETWORK).toBe("testnetBradbury");
-    expect(GENLAYER_RPC_URL).toBe("https://rpc-bradbury.genlayer.com");
-    expect(EXPECTED_CHAIN_ID).toBe("0x107d");
-    expect(GENLAYER_NETWORK_LABEL).toBe("GenLayer Bradbury");
+  it("defaults to the Studio-dev network and RPC", () => {
+    expect(GENLAYER_NETWORK).toBe("studioDevnet");
+    expect(GENLAYER_RPC_URL).toBe("https://studio-dev.genlayer.com/api");
+    expect(EXPECTED_CHAIN_ID).toBe("0xf22d");
+    expect(GENLAYER_NETWORK_LABEL).toBe("GenLayer Studio-dev");
+  });
+
+  it("defaults to the authoritative V2 contract", async () => {
+    const { CONTRACT_ADDRESS } = await import("./client");
+    expect(CONTRACT_ADDRESS).toBe("0x6E2EAfF16124c513022Ad85751fD4dfF8d7e5580");
   });
 
   it("treats a disconnected wallet as no account", async () => {
@@ -25,8 +30,8 @@ describe("production GenLayer configuration", () => {
   });
 
   it("normalizes the provider chain id for wrong-network checks", async () => {
-    Object.defineProperty(globalThis, "window", { configurable: true, value: { ethereum: { request: async () => "0X107D" } } });
-    await expect(currentChainId()).resolves.toBe("0x107d");
+    Object.defineProperty(globalThis, "window", { configurable: true, value: { ethereum: { request: async () => "0XF22F" } } });
+    await expect(currentChainId()).resolves.toBe("0xf22f");
     Reflect.deleteProperty(globalThis, "window");
   });
 

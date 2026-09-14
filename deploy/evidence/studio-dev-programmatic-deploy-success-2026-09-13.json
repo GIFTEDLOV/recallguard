@@ -1,0 +1,46 @@
+{
+  "network": "studio-dev",
+  "rpc": "https://studio-dev.genlayer.com/api",
+  "chainId": 61997,
+  "genlayerJs": "2.0.0-rc.1",
+  "broadcastPath": "programmatic genlayer-js client.deployContract",
+  "cliUsedForBroadcast": false,
+  "contractSha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+  "constructorArgs": [
+    ["saferproducts.gov"],
+    ["amazon.com"]
+  ],
+  "preparedCalldataVerified": true,
+  "decodedConstructorArgTypes": ["array", "array"],
+  "decodedCalldataReadable": "{\"args\":[[\"saferproducts.gov\",],[\"amazon.com\",],]}",
+  "deployTx": "0x8dd3dd1eb183f565834ca7c403e1ee93b65aa4369d63228e2066580959d51c83",
+  "genlayerProtocolTxId": "0x8dd3dd1eb183f565834ca7c403e1ee93b65aa4369d63228e2066580959d51c83",
+  "outerEvmTxHash": "0x8dd3dd1eb183f565834ca7c403e1ee93b65aa4369d63228e2066580959d51c83",
+  "status": "FINALIZED",
+  "execution": "FINISHED_WITH_RETURN",
+  "contractAddress": "0xf89F8CB2ddd201185d905107fDbA8bAeeDF066Ca",
+  "deployedSourceSha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+  "sourceParityVerified": true,
+  "contractInfo": {
+    "name": "RecallGuard",
+    "version": "v2",
+    "authorized_recall_domains": ["saferproducts.gov"],
+    "authorized_marketplace_domains": ["amazon.com"],
+    "listing_state_enum": ["UNASSESSED", "CLEARED", "REVIEW_REQUIRED", "BLOCKED"],
+    "verdict_enum": ["AFFECTED", "NOT_AFFECTED", "INCONCLUSIVE"]
+  },
+  "requiredMethods": [
+    "register_listing",
+    "request_assessment",
+    "get_listing",
+    "get_assessment",
+    "get_listing_ids",
+    "get_assessment_ids",
+    "get_listing_assessments",
+    "get_attestation",
+    "contract_info"
+  ],
+  "requiredMethodsVerified": true,
+  "broadcastCount": 1,
+  "secondDeployAttempted": false
+}

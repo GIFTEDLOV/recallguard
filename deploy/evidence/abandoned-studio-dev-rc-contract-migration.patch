@@ -1,0 +1,144 @@
+diff --git a/contracts/recall_guard.py b/contracts/recall_guard.py
+index 198cb5b..28882f8 100644
+--- a/contracts/recall_guard.py
++++ b/contracts/recall_guard.py
+@@ -1,4 +1,4 @@
+-# { "Seq": [{ "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }] }
++# { "Seq": [{ "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }] }
+ 
+ """RecallGuard V2: fixed-authority, permissionless CPSC applicability checks.
+ 
+@@ -20,7 +20,8 @@ import re
+ from dataclasses import dataclass
+ from typing import Any, Callable, cast
+ 
+-from genlayer import *
++import genlayer as gl
++from genlayer.types import Address
+ 
+ 
+ MAX_ID_LENGTH = 128
+@@ -56,7 +57,7 @@ ERROR_SEMANTIC = "SEMANTIC:"
+ ERROR_CONSENSUS = "CONSENSUS:"
+ 
+ 
+-@allow_storage
++@gl.storage.allow
+ @dataclass
+ class Listing:
+     id: str
+@@ -73,6 +74,6 @@ class Listing:
+ 
+ 
+-@allow_storage
++@gl.storage.allow
+ @dataclass
+ class Assessment:
+     id: str
+@@ -91,18 +91,18 @@ class RecallGuard(gl.Contract):
+     source_policy_version: str
+ 
+ 
+-class RecallGuard(gl.Contract):
+-    authorized_recall_domains: DynArray[str]
+-    authorized_marketplace_domains: DynArray[str]
+-    listings: TreeMap[str, Listing]
+-    listing_ids: DynArray[str]
+-    assessments: TreeMap[str, Assessment]
+-    assessment_ids: DynArray[str]
++class RecallGuard(gl.contract.Contract):
++    authorized_recall_domains: gl.storage.DynArray[str]
++    authorized_marketplace_domains: gl.storage.DynArray[str]
++    listings: gl.storage.TreeMap[str, Listing]
++    listing_ids: gl.storage.DynArray[str]
++    assessments: gl.storage.TreeMap[str, Assessment]
++    assessment_ids: gl.storage.DynArray[str]
+ 
+     def __init__(
+         self,
+-        authorized_recall_domains: DynArray[str],
+-        authorized_marketplace_domains: DynArray[str],
++        authorized_recall_domains: gl.storage.DynArray[str],
++        authorized_marketplace_domains: gl.storage.DynArray[str],
+     ):
+         self._load_domains(authorized_recall_domains, self.authorized_recall_domains)
+         self._load_domains(authorized_marketplace_domains, self.authorized_marketplace_domains)
+@@ -111,7 +112,7 @@ class RecallGuard(gl.Contract):
+     def _fail(self, message: str):
+         raise gl.vm.UserError(message)
+ 
+-    def _load_domains(self, domains: DynArray[str], destination: DynArray[str]):
++    def _load_domains(self, domains: gl.storage.DynArray[str], destination: gl.storage.DynArray[str]):
+         if len(domains) == 0:
+             self._fail("EXPECTED:EMPTY_DOMAIN_ALLOWLIST")
+         for domain in domains:
+@@ -199,7 +200,7 @@ class RecallGuard(gl.Contract):
+             suffix = ""
+         return "https://" + host + suffix
+ 
+-    def _is_authorized_host(self, url: str, domains: DynArray[str]) -> bool:
++    def _is_authorized_host(self, url: str, domains: gl.storage.DynArray[str]) -> bool:
+         host = self._host(url)
+         for configured_domain in domains:
+             if host == configured_domain or host.endswith("." + configured_domain):
+@@ -462,14 +463,14 @@ Do not add reasoning, confidence, sources, or any other field.
+         }
+ 
+     def _same_error_class(self, leader_result: Any, leader_fn: Callable[[], Any]) -> bool:
+-        leader_message = getattr(leader_result, "message", "")
++        leader_message = getattr(leader_result, "message", getattr(leader_result, "data", ""))
+         if not isinstance(leader_message, str):
+             return False
+         try:
+             leader_fn()
+             return False
+         except gl.vm.UserError as error:
+-            validator_message = getattr(error, "message", str(error))
++            validator_message = getattr(error, "message", getattr(error, "data", str(error)))
+             if leader_message.startswith(ERROR_EXPECTED) or leader_message.startswith(ERROR_SOURCE):
+                 return validator_message == leader_message
+             if leader_message.startswith(ERROR_TRANSIENT):
+@@ -565,7 +566,7 @@ Do not add reasoning, confidence, sources, or any other field.
+             try:
+                 model_result = gl.nondet.exec_prompt(
+                     self._decision_prompt(canonical_facts, listing_in_memory),
+-                    response_format="json",
++                    response_format="text",
+                 )
+             except Exception:
+                 raise gl.vm.UserError(ERROR_SEMANTIC + "MODEL_EXECUTION_FAILED")
+@@ -580,8 +580,8 @@
+                 try:
+                     response = gl.nondet.web.get(self._cpsc_url(normalized_recall_identifier))
+                     validator_facts = self._parse_cpsc_response(response, normalized_recall_identifier)
+                     validator_model_result = gl.nondet.exec_prompt(
+                         self._decision_prompt(validator_facts, listing_in_memory),
+-                        response_format="json",
++                        response_format="text",
+                     )
+                     validator_data = self._assessment_result(
+@@ -611,8 +612,8 @@ Do not add reasoning, confidence, sources, or any other field.
+             return False
+ 
+         try:
+-            result: Any = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
++            result: Any = gl.vm.run_nondet(leader_fn, validator_fn)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+         except gl.vm.UserError as error:
+-            self._fail(getattr(error, "message", str(error)))
++            self._fail(getattr(error, "message", getattr(error, "data", str(error))))
+         except Exception:
+             self._fail(ERROR_CONSENSUS + "DISAGREEMENT_OR_TIMEOUT")
+@@ -668,11 +669,11 @@ class RecallGuard(gl.Contract):
+         return self.assessments[assessment_id]
+ 
+     @gl.public.view  # pyright: ignore[reportUnknownMemberType]
+-    def get_listing_ids(self) -> DynArray[str]:
++    def get_listing_ids(self) -> gl.storage.DynArray[str]:
+         return self.listing_ids
+ 
+     @gl.public.view  # pyright: ignore[reportUnknownMemberType]
+-    def get_assessment_ids(self) -> DynArray[str]:
++    def get_assessment_ids(self) -> gl.storage.DynArray[str]:
+         return self.assessment_ids
+ 
+     @gl.public.view  # pyright: ignore[reportUnknownMemberType]

@@ -11,16 +11,31 @@ facts, that a seller told the truth, that SHA-256 authenticates a publisher, or
 that a cleared record is universally safe. The contract records facts supplied
 by an address and preserves the consensus-backed CPSC applicability result.
 
-V2 is developed on `v2/remediation`. It is not deployed to Bradbury in this
-phase. V1 production evidence remains preserved in Git history,
-`PROVENANCE.md`, and [docs/V1_FREEZE.md](docs/V1_FREEZE.md).
+V2 is the current Studio-dev release. Historical V1 and superseded V2
+deployment evidence remains preserved in Git history, `PROVENANCE.md`, and
+[docs/V1_FREEZE.md](docs/V1_FREEZE.md).
+
+## Authoritative V2 deployment
+
+- Network: `Studio-dev`
+- RPC: `https://studio-dev.genlayer.com/api`
+- Chain ID: `61997`
+- Contract: `0x6E2EAfF16124c513022Ad85751fD4dfF8d7e5580`
+- Source SHA-256: `814fd01cd7d1c1d6ab3c2789a54ee76432bdc1e8653b4658b2dfc2348b0a3f3d`
+- Deploy transaction: `0xd8ed4bf844bf8b1e35ccfa6f39382df4a4ef73c33eb774f089f3d4a877cd4c49`
+- Live steward assessment: `0xa1d7ea20dd909cac43776a8a09b5186e8f6a7d94bb1023f050af8b9d7ab4d8ce`
+- Canonical proof: [studio-dev-steward-proof-schema-fix-2026-09-14.json](deploy/evidence/studio-dev-steward-proof-schema-fix-2026-09-14.json)
+
+The live steward proof registered listing `fc579fdf19698bf917bb7cc5a9e3d29a99fd45911d85306008e34c99cceaa3e0`, then a distinct challenger requested the assessment. It returned `AFFECTED`, changed the listing to `BLOCKED`, and produced verified append-only history and attestation records.
 
 ## Authoritative states
 
-- `UNASSESSED` - Not yet assessed. Registration always starts here.
+- `UNASSESSED` - Not yet assessed. No consensus clearance exists; this is not
+  a safe or approved state.
 - `CLEARED` - Cleared by consensus against the recorded assessments and
-  registered facts.
-- `REVIEW_REQUIRED` - An admissible, genuinely ambiguous assessment remains.
+  registered facts; this is not universal product safety certification.
+- `REVIEW_REQUIRED` - An admissible, genuinely ambiguous assessment remains
+  and needs review.
 - `BLOCKED` - At least one relevant affected assessment remains.
 
 The aggregate priority is `AFFECTED > INCONCLUSIVE > NOT_AFFECTED`. A later
@@ -88,7 +103,8 @@ no business verdict and no state mutation.
 
 Every listing detail page exposes the challenge path to any connected wallet.
 The UI labels `UNASSESSED` as `Not yet assessed` and never presents it as safe,
-clear, verified, approved, or active.
+clear, verified, approved, or active. A connected wallet does not need to be
+the listing owner to request an assessment.
 
 ## Transaction safety
 

@@ -21,7 +21,7 @@
       "scenario": "owner registers; unrelated challenger submits the same authoritative recall",
       "owner": "account-A",
       "challenger": "account-B",
-      "marketplace_host": "amazon.com",
+      "marketplace_host": "www.amazon.com",
       "external_listing_id": "fixture-a",
       "listing_id": "ab974f51a628301ac26d94149f92b78a1e55622dcde98b8fc1e74e3420eb8379",
       "product_id": "RG-FIXTURE-A",

@@ -139,6 +139,8 @@ def test_malformed_model_output_fails_without_state_mutation(direct_vm, direct_d
 def test_strict_three_value_model_schema(direct_vm, direct_deploy, raw):
     contract = deploy_recall_guard(direct_deploy)
     listing_id = setup_listing(contract)
+    with direct_vm.expect_revert("SEMANTIC:"):
+        contract._parse_authoritative_verdict(json.loads(raw))
     mock_cpsc(direct_vm)
     direct_vm.mock_llm(r"RecallGuard applicability evaluator", raw)
     with direct_vm.expect_revert("SEMANTIC:"):

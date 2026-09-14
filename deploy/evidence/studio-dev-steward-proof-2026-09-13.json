@@ -1,0 +1,48 @@
+{
+  "network": "studio-dev",
+  "rpc": "https://studio-dev.genlayer.com/api",
+  "chainId": 61997,
+  "contractAddress": "0xf89F8CB2ddd201185d905107fDbA8bAeeDF066Ca",
+  "rcSourceSha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+  "deploymentTx": "0x8dd3dd1eb183f565834ca7c403e1ee93b65aa4369d63228e2066580959d51c83",
+  "owner": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "challenger": "0x6311de989ab01ae4da77d36cc45d495fbcd4b7a8",
+  "fixture": {
+    "source": "fixtures/v2_live_fixtures.json Fixture A",
+    "marketplaceHost": "www.amazon.com",
+    "externalListingId": "fixture-a",
+    "listingUrl": "https://www.amazon.com/dp/fixture-a",
+    "cpscRecallIdentifier": "26741",
+    "expectedVerdict": "AFFECTED",
+    "expectedFinalState": "BLOCKED"
+  },
+  "registerTx": "0x7eb621fc21070e5ae7c13afa6cfed777644f5f4ba2dc47be6bb93bb45d86388d",
+  "registerStatus": "FINALIZED",
+  "registerExecution": "FINISHED_WITH_RETURN",
+  "listingId": "fc579fdf19698bf917bb7cc5a9e3d29a99fd45911d85306008e34c99cceaa3e0",
+  "registeredBy": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "initialState": "UNASSESSED",
+  "initialAssessmentCount": 0,
+  "challengerBalanceWeiAtPreflight": "5001685484249993412",
+  "assessmentTx": "0x76508b046eef9937714550b5f6bd97a79a239dd9b0fa7401567ac2f81f2a34e0",
+  "assessmentStatus": "FINALIZED",
+  "assessmentExecution": "FINISHED_WITH_ERROR",
+  "assessmentExecutionError": "SOURCE:INVALID_SCHEMA_Description",
+  "assessmentFeeProfile": {
+    "executionBudgetPerRound": "158846500000000",
+    "feeValue": "794232500066658",
+    "rotations": ["1", "1"]
+  },
+  "requestedBy": "0x6311de989ab01ae4da77d36cc45d495fbcd4b7a8",
+  "verdict": null,
+  "finalState": null,
+  "history": [],
+  "attestation": null,
+  "historyVerified": false,
+  "attestationVerified": false,
+  "ownerCannotSuppressProven": false,
+  "broadcasts": {
+    "register": 1,
+    "assessment": 0
+  }
+}

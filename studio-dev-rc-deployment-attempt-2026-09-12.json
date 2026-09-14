@@ -1,0 +1,39 @@
+{
+  "network": "studio-dev",
+  "rpc": "https://studio-dev.genlayer.com/api",
+  "chain_id": 61997,
+  "cli_version": "0.40.0-rc.3",
+  "owner": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "contract_sha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+  "constructor_args": [
+    ["saferproducts.gov"],
+    ["amazon.com"]
+  ],
+  "fee_profile": "frontend/public/fee-profile.json",
+  "live_fee_estimate": {
+    "fee_value": "493071875041661",
+    "leader_timeunits_allocation": "125",
+    "validator_timeunits_allocation": "250",
+    "execution_budget_per_round": "98614375000000",
+    "rotations": ["1", "1"]
+  },
+  "deployment_attempted": true,
+  "deployment_count": 1,
+  "deployment_tx": "0xb20401a965f1bc4aab48016196f9a6cc4515e2de613b07e6eeccc649805c65a6",
+  "protocol_status": "FINALIZED",
+  "protocol_status_code": 7,
+  "protocol_execution": "FINISHED_WITH_ERROR",
+  "lifecycle": {
+    "state": "finalized",
+    "outcome": "accepted"
+  },
+  "evm_transaction_found": true,
+  "evm_receipt_found": true,
+  "evm_receipt_status": "0x1",
+  "evm_receipt_contract_address": null,
+  "leader_execution": "ERROR",
+  "leader_contract_error": "out_of receipt message",
+  "contract_address": null,
+  "rebroadcast": false,
+  "cli_exit_code": 1
+}

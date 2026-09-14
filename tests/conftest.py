@@ -83,7 +83,7 @@ def _patch_windows_direct_loader():
         header_vm.run_nondet_unsafe = direct_run_nondet_unsafe
         header_vm._direct_mode_patched = True
 
-    loader._patch_run_nondet_for_direct_mode = patch_header_nondet
+    # gltest 0.30.0rc2 already patches the v0.3 run_nondet API itself.
 
     # VMContext.run_validator in the installed RC imports genlayer.vm. The
     # header-selected runner exposes the result types under genlayer.gl.
@@ -116,7 +116,7 @@ def _patch_windows_direct_loader():
         except ImportError:
             pass
 
-    VMContext._refresh_gl_message = refresh_gl_message
+    # gltest 0.30.0rc2 already refreshes the v0.3 message module itself.
 
     def run_validator(self, *, leader_result=_sentinel, leader_error=None, index=-1):
         import genlayer.gl.vm as header_vm
@@ -131,11 +131,11 @@ def _patch_windows_direct_loader():
             wrapped = header_vm.Return(calldata=stored_result)
         return validator_fn(wrapped)
 
-    VMContext.run_validator = run_validator
+    # gltest 0.30.0rc2 already implements validator execution for v0.3.
 
     def inject_message_to_fd0(vm):
-        from genlayer.py import calldata
-        from genlayer.py.types import Address
+        from genlayer import calldata
+        from genlayer.types import Address
 
         message_data = {
             "contract_address": Address(vm._contract_address),

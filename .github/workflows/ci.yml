@@ -46,17 +46,17 @@ jobs:
           grep -Fq 'v2-authority-notice-reference' contracts/recall_guard.py
           grep -Fq 'STATE_UNASSESSED' contracts/recall_guard.py
           grep -Fq 'get_listing_assessments' contracts/recall_guard.py
-          grep -Fq '"recall_domains": ["cpsc.gov"]' config/v2_source_policy.json
+          grep -Fq '"recall_domains": ["saferproducts.gov"]' config/v2_source_policy.json
           grep -Fq '"marketplace_domains": ["amazon.com"]' config/v2_source_policy.json
-          grep -Fq '"listing_evidence_domains": ["amazon.com"]' config/v2_source_policy.json
 
       - name: Verify production configuration
         shell: bash
         run: |
-          grep -Fq 'https://rpc-bradbury.genlayer.com' frontend/lib/genlayer/client.ts
-          grep -Fq 'testnetBradbury' frontend/lib/genlayer/client.ts
-          ! grep -Fq '0xcB6688DcD30bDB97B882c02a1B1273914dcAB563' frontend/.env.example
-          ! grep -R -nE 'studio\.genlayer\.com|studionet|61999|localhost:4000' frontend/lib frontend/.env.example
+          grep -Fq 'https://studio-dev.genlayer.com/api' frontend/lib/genlayer/client.ts
+          grep -Fq 'studioDevnet' frontend/lib/genlayer/client.ts
+          grep -Fq '61997' frontend/.env.example
+          grep -Fq '0x6E2EAfF16124c513022Ad85751fD4dfF8d7e5580' frontend/.env.example
+          ! grep -R -nE 'rpc-bradbury\.genlayer\.com|testnetBradbury|studio\.genlayer\.com|studionet|61999|4221|localhost:4000|0xf89F8CB2ddd201185d905107fDbA8bAeeDF066Ca|0xcB6688DcD30bDB97B882c02a1B1273914dcAB563' frontend/lib/genlayer frontend/lib/contracts frontend/.env.example
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

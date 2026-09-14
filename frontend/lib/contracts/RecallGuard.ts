@@ -1,10 +1,9 @@
 import { createGenLayerClient, CONTRACT_ADDRESS, GENLAYER_RPC_URL } from "../genlayer/client";
+import { loadFeeProfile, profileEntry, type FeeProfileEntry } from "../fees";
 import { listingId } from "../canonical";
 import { pendingTransactions, type PendingExpectation, type PendingTransaction } from "../transactions/persistence";
 import type { Assessment, ContractInfo, Listing } from "../types";
-import { isSuccessful as sdkIsSuccessful } from "genlayer-js";
-import { TransactionHashVariant, type GenLayerTransaction } from "genlayer-js/types";
-import { loadFeeProfile, profileEntry } from "../fees";
+import { TransactionHashVariant } from "genlayer-js/types";
 
 type Receipt = Record<string, any>;
 
@@ -43,16 +42,16 @@ function plain(value: unknown): any {
 function statusName(receipt: Receipt): string {
   if (typeof receipt.statusName === "string") return receipt.statusName.toUpperCase();
   if (typeof receipt.status === "string") return receipt.status.toUpperCase();
+  if (receipt.status === 7) return "FINALIZED";
   return "";
 }
 
-/** Uses the official genlayer-js v2 success predicate. */
+/** Durable application completion requires finality and a successful return. */
 export function isSuccessfulTransaction(receipt: Receipt): boolean {
   if (!receipt || typeof receipt !== "object") return false;
-  // `genlayer-js` also considers ACCEPTED + return a successful protocol
-  // execution. Application completion is stricter: state-changing UI actions
-  // are durable only after the required FINALIZED lifecycle state.
-  return isFinalized(receipt) && sdkIsSuccessful(receipt as GenLayerTransaction);
+  if (!isFinalized(receipt)) return false;
+  if (typeof receipt.txExecutionResultName === "string") return receipt.txExecutionResultName.toUpperCase() === "FINISHED_WITH_RETURN";
+  return receipt.txExecutionResult === 1 || receipt.txExecutionResult === "1";
 }
 
 function isFinalized(receipt: Receipt): boolean {
@@ -65,16 +64,22 @@ export class PendingTransactionError extends Error {
   }
 }
 
-export class FeePolicyUnavailableError extends Error {
-  constructor() {
-    super("TOOLCHAIN:GENLAYER_JS_V2_FEE_ESTIMATOR_REQUIRED");
-  }
-}
-
 export class FinalizedExecutionError extends Error {
   constructor(public readonly receipt: Receipt) {
     super("TRANSACTION:FINALIZED_WITHOUT_FINISHED_WITH_RETURN");
   }
+}
+
+function feeEstimateOptions(entry: FeeProfileEntry): Record<string, bigint | bigint[]> {
+  const options: Record<string, bigint | bigint[]> = {
+    leaderTimeunitsAllocation: BigInt(entry.leaderTimeunitsAllocation),
+    validatorTimeunitsAllocation: BigInt(entry.validatorTimeunitsAllocation),
+    executionBudgetPerRound: BigInt(entry.executionBudgetPerRound),
+    totalMessageFees: BigInt(entry.totalMessageFees),
+    rotations: [BigInt(entry.rotationsPerRound)],
+  };
+  if (entry.appealRounds !== undefined) options.appealRounds = BigInt(entry.appealRounds);
+  return options;
 }
 
 export class RecallGuardContract {
@@ -219,52 +224,33 @@ export class RecallGuardContract {
   }
 
   private async waitForFinalization(hash: string): Promise<Receipt> {
-    return plain(await this.client.waitForFinalization({ hash, retries: 120, interval: 5000, fullTransaction: true }));
-  }
-
-  private async quoteFees(method: string): Promise<Record<string, unknown>> {
-    const profile = await loadFeeProfile();
-    const entry = profileEntry(profile, method as "register_listing" | "request_assessment");
-    if (typeof this.client.estimateTransactionFees !== "function") throw new FeePolicyUnavailableError();
-    const appealRounds = Number(entry.appealRounds ?? 1);
-    const rotationsPerRound = BigInt(entry.rotationsPerRound);
-    const estimate = await this.client.estimateTransactionFees({
-      leaderTimeunitsAllocation: BigInt(entry.leaderTimeunitsAllocation),
-      validatorTimeunitsAllocation: BigInt(entry.validatorTimeunitsAllocation),
-      executionBudgetPerRound: BigInt(entry.executionBudgetPerRound),
-      totalMessageFees: BigInt(entry.totalMessageFees ?? "0"),
-      appealRounds: BigInt(appealRounds),
-      rotations: Array.from({ length: appealRounds + 1 }, () => rotationsPerRound),
-    });
-    if (!estimate || !estimate.distribution || estimate.feeValue === undefined) {
-      throw new FeePolicyUnavailableError();
-    }
-    return { distribution: estimate.distribution, feeValue: estimate.feeValue };
+    return plain(await this.client.waitForTransactionReceipt({ hash, status: "FINALIZED", retries: 120, interval: 5000 }));
   }
 
   private async executeWrite(method: string, args: unknown[], expected: PendingExpectation, expectedState: () => Promise<void>, onProgress?: TransactionProgressHandler): Promise<{ hash: string; receipt: Receipt }> {
     // This is the only application broadcast path. Once the SDK returns a
     // GenLayer transaction ID, all later failures reconcile that same ID.
-    await this.client.connect("testnetBradbury");
+    await this.client.connect("studioDevnet");
     onProgress?.({ stage: "PRECONDITION_READ", detail: "Network and contract preconditions satisfied" });
-    let quote: Record<string, unknown>;
-    try {
-      quote = await this.quoteFees(method);
-    } catch (error) {
-      onProgress?.({ stage: "FAILED", detail: String(error) });
-      throw error;
-    }
-    onProgress?.({ stage: "FEE_QUOTED", detail: "Current network fee policy returned by the SDK" });
 
     let hash: string;
     try {
-      hash = await this.client.writeContract({
+      const profile = await loadFeeProfile();
+      const entry = profileEntry(profile, method as "register_listing" | "request_assessment");
+      const estimate = await this.client.estimateTransactionFees(feeEstimateOptions(entry));
+      onProgress?.({ stage: "FEE_QUOTED", detail: "Current Studio-dev fee policy applied to the measured RC allocation" });
+      const returnedHash = await this.client.writeContract({
         address: this.address,
         functionName: method,
         args,
         value: BigInt(0),
-        fees: quote,
+        fees: {
+          distribution: estimate.distribution,
+          feeValue: estimate.feeValue,
+        },
       });
+      if (typeof returnedHash !== "string" || !returnedHash) throw new Error("Broadcast returned no GenLayer transaction ID");
+      hash = returnedHash;
     } catch (error) {
       onProgress?.({ stage: "FAILED", detail: String(error) });
       throw new SubmissionRejectedError(error);

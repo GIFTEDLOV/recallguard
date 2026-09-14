@@ -220,6 +220,10 @@ h1, h2, h3, strong { letter-spacing: -.035em; }
 .metric-unassessed .metric-top svg { color: #6f7b77; }
 .metric-blocked .metric-top svg { color: var(--red); }
 .metric-clear .metric-top svg { color: var(--green); }
+.state-key-surface { padding: 23px 25px; }
+.state-key-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.state-key-item { min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255, 254, 250, .65); }
+.state-key-item p { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .content-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
 .dashboard-grid { margin-top: 1px; }
 .section-card { min-width: 0; padding: 25px; }
@@ -559,6 +563,8 @@ h1, h2, h3, strong { letter-spacing: -.035em; }
   .intro-actions .button { flex: 1; }
   .metric-card { min-height: 119px; padding: 15px; }
   .metric-card > strong { margin-top: 14px; font-size: 28px; }
+  .state-key-surface { padding: 19px; }
+  .state-key-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .section-card, .check-form { padding: 19px; }
   .onboarding-surface { padding: 20px; }
   .evidence-band { padding: 23px 20px; }

@@ -1,5 +1,57 @@
 # RecallGuard deployment provenance
 
+## Current authoritative V2 release — Studio-dev
+
+This is the current frontend and application target. No historical V1 or
+superseded V2 address is an active target.
+
+- Network: `Studio-dev`
+- RPC: `https://studio-dev.genlayer.com/api`
+- Chain ID: `61997`
+- Contract: `0x6E2EAfF16124c513022Ad85751fD4dfF8d7e5580`
+- Source SHA-256: `814fd01cd7d1c1d6ab3c2789a54ee76432bdc1e8653b4658b2dfc2348b0a3f3d`
+- Deploy transaction: `0xd8ed4bf844bf8b1e35ccfa6f39382df4a4ef73c33eb774f089f3d4a877cd4c49`
+- Deploy result: `FINALIZED` + `FINISHED_WITH_RETURN`
+- Steward register transaction: `0x41ae7209145328c59a5a330599899ad1edd81672affe7cd2f8dc2562899084c8`
+- Steward assessment transaction: `0xa1d7ea20dd909cac43776a8a09b5186e8f6a7d94bb1023f050af8b9d7ab4d8ce`
+- Steward result: `AFFECTED` -> `BLOCKED`; history and attestation verified
+- Canonical evidence: `deploy/evidence/studio-dev-steward-proof-schema-fix-2026-09-14.json`
+- Frontend preview deployment: `dpl_CLxMmmnjUTbH4dMRx9hCxL59YSSc`
+- Frontend preview URL: `https://recallguard-cnpru3kyf-kolofahkelvin16-6437s-projects.vercel.app`
+- Preview source: branch `v2/bradbury-stable`, commit `e4a1533`, dirty worktree preserved
+- Preview smoke: landing, app, V2 contract, Studio-dev network, blocked listing, history,
+  attestation, four-state key, and permissionless challenger UI verified; no old contract
+  address in preview bundles
+
+## Consensus v0.6 / Studio v0.123 RC runner migration
+
+The historical Bradbury candidate remains preserved under its original source
+identity:
+
+- `PRE_RC_RUNNER_SHA256`: `60fedd9cb0b1615277d41380ed646cd36e417cc074cad94c424e928513019ae3`
+- `OLD_RUNNER_PIN`: `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6`
+
+The RC-compatible source identity is:
+
+- `NEW_RUNNER_PIN`: `py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng`
+- `NEW_RUNNER_VERSION`: `v0.3.0`
+- `RUNNER_PIN_SOURCE`: official GenLayer Studio `v0.123.0-rc.6` bundled `wizard_of_coin.py` example and matching runner manifest
+- `RC_COMPATIBLE_SHA256`: `5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f`
+
+RecallGuard V2 RC migration changed only the pinned GenVM Python runner/API
+compatibility surface required by Consensus v0.6 / Studio v0.123; contract
+logic and state semantics are unchanged. The additional source edits are the
+minimal v0.3 API namespace/error/result-format adaptations proven necessary by
+the RC runtime; constructor values, validation rules, public methods, state
+transitions, and consensus policy remain unchanged.
+
+The real v0.6 fee profile is measured separately against the matching local RC
+Studio and is not a live-price quote:
+
+- `FEE_PROFILE_PATH`: `frontend/public/fee-profile.json`
+- `FEE_PROFILE_NETWORK`: `studio-dev` (chain `61997`)
+- `FEE_PROFILE_HEADROOM`: `1.25`
+
 This record preserves the first Bradbury attempt. It is historical evidence only
 and is not current deployment proof.
 

@@ -1,0 +1,139 @@
+{
+  "network": "studio-dev",
+  "rpc": "https://studio-dev.genlayer.com/api",
+  "chainId": 61997,
+  "contractAddress": "0xf89F8CB2ddd201185d905107fDbA8bAeeDF066Ca",
+  "contractSha256": "5ccac7504d6f892e28244e842aa4a2545b69e2ee4d5008b68d90445cabdd888f",
+  "deploymentTx": "0x8dd3dd1eb183f565834ca7c403e1ee93b65aa4369d63228e2066580959d51c83",
+  "genlayerJs": "2.0.0-rc.1",
+  "owner": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "fixture": {
+    "source": "fixtures/v2_live_fixtures.json Fixture A",
+    "marketplaceHost": "www.amazon.com",
+    "externalListingId": "fixture-a",
+    "listingUrl": "https://www.amazon.com/dp/fixture-a",
+    "cpscRecallIdentifier": "26741",
+    "expectedVerdict": "AFFECTED",
+    "expectedFinalState": "BLOCKED",
+    "fixtureDeclaredListingId": "ab974f51a628301ac26d94149f92b78a1e55622dcde98b8fc1e74e3420eb8379",
+    "canonicalIdentity": "[\"v2-stable-marketplace-reference\",\"www.amazon.com\",\"fixture-a\"]",
+    "canonicalListingIdDerived": "fc579fdf19698bf917bb7cc5a9e3d29a99fd45911d85306008e34c99cceaa3e0"
+  },
+  "contractInfoVerified": true,
+  "contractInfo": {
+    "name": "RecallGuard",
+    "version": "v2",
+    "authorizedRecallDomains": ["saferproducts.gov"],
+    "authorizedMarketplaceDomains": ["amazon.com"],
+    "administratorExists": false,
+    "assessmentRecordStatus": "ADJUDICATED",
+    "listingStateEnum": ["UNASSESSED", "CLEARED", "REVIEW_REQUIRED", "BLOCKED"],
+    "verdictEnum": ["AFFECTED", "NOT_AFFECTED", "INCONCLUSIVE"]
+  },
+  "shutdownRecovery": {
+    "shutdownDate": "2026-09-13",
+    "registerTxRecovered": true,
+    "registerTx": "0x7eb621fc21070e5ae7c13afa6cfed777644f5f4ba2dc47be6bb93bb45d86388d",
+    "registerTxStatus": "FINALIZED",
+    "registerTxExecution": "FINISHED_WITH_RETURN",
+    "assessmentTxRecovered": true,
+    "assessmentTx": "0x76508b046eef9937714550b5f6bd97a79a239dd9b0fa7401567ac2f81f2a34e0",
+    "assessmentTxStatus": "FINALIZED",
+    "assessmentTxExecution": "FINISHED_WITH_ERROR",
+    "assessmentTxError": "SOURCE:INVALID_SCHEMA_Description",
+    "notes": [
+      "The existing listing and both recovered transaction IDs were reconciled before any new write.",
+      "The recovered assessment transaction did not create an assessment or change listing state.",
+      "No redeployment was attempted."
+    ]
+  },
+  "listingAlreadyExisted": true,
+  "registerAttemptedThisRun": false,
+  "registerTx": "0x7eb621fc21070e5ae7c13afa6cfed777644f5f4ba2dc47be6bb93bb45d86388d",
+  "registerStatus": "FINALIZED",
+  "registerExecution": "FINISHED_WITH_RETURN",
+  "listingId": "fc579fdf19698bf917bb7cc5a9e3d29a99fd45911d85306008e34c99cceaa3e0",
+  "registeredBy": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "initialState": "UNASSESSED",
+  "initialAssessmentCount": 0,
+  "challenger": "0x6311de989ab01ae4da77d36cc45d495fbcd4b7a8",
+  "challengerBalanceWei": "5001527932249990118",
+  "challengerLatestNonce": 6,
+  "challengerPendingNonce": 6,
+  "challengerDistinct": true,
+  "assessmentAlreadyExisted": false,
+  "assessmentAttemptedThisRun": true,
+  "assessmentTx": "0x2410f57158d07a4937e2e4d1c625e6038c24f8beb47dd9a22dfbc0db7f915972",
+  "assessmentStatus": "FINALIZED",
+  "assessmentExecution": "FINISHED_WITH_ERROR",
+  "assessmentExecutionError": "SOURCE:INVALID_SCHEMA_Description",
+  "assessmentTransactionSender": "0x6311de989ab01ae4da77d36cc45d495fbcd4b7a8",
+  "recallIdentifier": "26741",
+  "recallIdentifierType": "string",
+  "preparedCalldata": {
+    "decodedArgs": [
+      "fc579fdf19698bf917bb7cc5a9e3d29a99fd45911d85306008e34c99cceaa3e0",
+      "26741"
+    ],
+    "decodedTypes": ["string", "string"]
+  },
+  "assessmentFeeProfile": {
+    "executionBudgetPerRound": "158846500000000",
+    "feeValue": "794232500066658",
+    "rotations": ["1", "1"],
+    "leaderTimeunitsAllocation": "200",
+    "validatorTimeunitsAllocation": "400",
+    "appealRounds": "1"
+  },
+  "requestedBy": null,
+  "verdict": null,
+  "finalState": "UNASSESSED",
+  "history": [],
+  "historyCount": 0,
+  "attestation": null,
+  "historyVerified": false,
+  "attestationVerified": false,
+  "ownerCannotSuppressProven": false,
+  "readback": {
+    "getListing": {
+      "id": "fc579fdf19698bf917bb7cc5a9e3d29a99fd45911d85306008e34c99cceaa3e0",
+      "owner": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+      "state": "UNASSESSED"
+    },
+    "getListingAssessments": [],
+    "getAssessmentIds": [],
+    "getAssessment": {
+      "status": "NO_RECORD",
+      "candidateId": "58c67c0236042b317c285ff039b6993a58dbca4b16d51c918ab5115d0a804720"
+    },
+    "getAttestation": {
+      "status": "NO_RECORD",
+      "candidateId": "58c67c0236042b317c285ff039b6993a58dbca4b16d51c918ab5115d0a804720"
+    }
+  },
+  "transactionStatuses": {
+    "deployment": "FINALIZED",
+    "deploymentExecution": "FINISHED_WITH_RETURN",
+    "register": "FINALIZED",
+    "registerExecution": "FINISHED_WITH_RETURN",
+    "shutdownAssessment": "FINALIZED",
+    "shutdownAssessmentExecution": "FINISHED_WITH_ERROR",
+    "assessmentThisRun": "FINALIZED",
+    "assessmentThisRunExecution": "FINISHED_WITH_ERROR"
+  },
+  "executionResults": {
+    "assessmentThisRun": "SOURCE:INVALID_SCHEMA_Description",
+    "assessmentThisRunConsensus": "MAJORITY_AGREE"
+  },
+  "broadcasts": {
+    "registerThisRun": 0,
+    "assessmentThisRun": 1,
+    "duplicateRegisterAttempted": false,
+    "duplicateAssessmentAttempted": false,
+    "redeployAttempted": false
+  },
+  "readyForFrontendStudioDevWiring": false,
+  "readyForStewardResubmission": false,
+  "blocker": "Authoritative deployed contract assessment execution fails with SOURCE:INVALID_SCHEMA_Description; no assessment record or state transition was produced. Further assessment retry is prohibited for this recovery run, and redeployment is prohibited by instruction.",
+  "nextSafeAction": "Stop. Preserve this evidence and investigate the deployed contract/source-response schema mismatch under a separately authorized change before any future steward submission."
+}

@@ -1,0 +1,18 @@
+{
+  "deployment_attempted": true,
+  "deployment_count": 1,
+  "cli_version": "0.39.2",
+  "rpc": "https://rpc-bradbury.genlayer.com",
+  "active_account": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "contract_sha256": "60fedd9cb0b1615277d41380ed646cd36e417cc074cad94c424e928513019ae3",
+  "cli_reported_identifier": "0x67d974e8a4f7679323ed3e13307c6f202c81a3c1dfd76f5c35130fb5900be6fb",
+  "cli_output": "WaitForTransactionReceiptTimeoutError",
+  "reconciliation": {
+    "evm_tx_found_during_poll_1": true,
+    "evm_receipt_found": false,
+    "genlayer_status": "UNINITIALIZED",
+    "pending_nonce_during_poll_1": "0x7",
+    "pending_nonce_after_poll": "0x6",
+    "deployment_result": "EVM_SUBMISSION_DROPPED_OR_NEVER_INCLUDED"
+  }
+}

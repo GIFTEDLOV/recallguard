@@ -1,5 +1,16 @@
 # RecallGuard V2 verification report
 
+## Current authoritative release
+
+The current Studio-dev frontend target is contract
+`0x6E2EAfF16124c513022Ad85751fD4dfF8d7e5580` on chain `61997`, with source
+SHA-256 `814fd01cd7d1c1d6ab3c2789a54ee76432bdc1e8653b4658b2dfc2348b0a3f3d`.
+The live steward proof returned `AFFECTED` and `BLOCKED`; see
+`deploy/evidence/studio-dev-steward-proof-schema-fix-2026-09-14.json`.
+
+The historical test and runner observations below are preserved as recorded
+validation history and do not change the current contract target.
+
 This report covers the docs-aligned v0.6 release-candidate work on
 `v2/remediation`, starting at `740adef951c23494ae77cf7f21d89c45f7eb9d8e`.
 It records offline gates and non-write source qualification only. No Bradbury

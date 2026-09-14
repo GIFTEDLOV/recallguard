@@ -18,7 +18,7 @@ describe("contract result presentation", () => {
   it("keeps UNASSESSED neutral and never describes it as safe or clear", () => {
     expect(toneForState("UNASSESSED")).toBe("neutral");
     expect(labelForState("UNASSESSED")).not.toMatch(/safe|clear|verified|approved|active/i);
-    expect(stateExplanation("UNASSESSED")).toBe("No consensus assessment exists yet.");
+    expect(stateExplanation("UNASSESSED")).toContain("not described as safe or cleared");
   });
 
   it.each([

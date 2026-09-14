@@ -1,0 +1,14 @@
+{
+  "network": "testnet-bradbury",
+  "rpc": "https://rpc-bradbury.genlayer.com",
+  "chain_id": 4221,
+  "cli_version": "0.39.2",
+  "contract_sha256": "60fedd9cb0b1615277d41380ed646cd36e417cc074cad94c424e928513019ae3",
+  "owner": "0xb1e3ea743df2b006b66751d57337c2bb10e23ecc",
+  "deploy_tx": "0xa54fd4b2961bd7c90f488aae0fab081086bf742cb08af11a1d3b4187af073a47",
+  "deploy_cli_result": "WaitForTransactionReceiptTimeoutError",
+  "deploy_status": "UNINITIALIZED",
+  "deploy_status_code": 0,
+  "evm_receipt": null,
+  "broadcast_count": 1
+}

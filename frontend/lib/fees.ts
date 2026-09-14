@@ -12,7 +12,7 @@ export interface FeeProfile {
   network: string;
   chainId: number;
   measuredAt: string;
-  headroom: number;
+  headroom?: number;
   deploy?: FeeProfileEntry;
   methods: Record<string, FeeProfileEntry>;
 }
@@ -28,6 +28,13 @@ export async function loadFeeProfile(): Promise<FeeProfile> {
   const profile = await response.json() as Partial<FeeProfile> & { status?: string };
   if (profile.status === "NOT_GENERATED" || !profile.methods || !profile.network) {
     throw new Error("FEE_PROFILE_REQUIRED: measured v0.6 fee profile is not available");
+  }
+  const isStudioDevProfile =
+    (profile.network === "studio_devnet" || profile.network === "studio-dev") &&
+    Number(profile.chainId) === 61997;
+  const isLocalMeasurementProfile = profile.network === "localnet" && Number(profile.chainId) === 61999;
+  if (!isStudioDevProfile && !isLocalMeasurementProfile) {
+    throw new Error(`FEE_PROFILE_REQUIRED: unsupported measured network ${profile.network}/${profile.chainId}`);
   }
   return profile as FeeProfile;
 }

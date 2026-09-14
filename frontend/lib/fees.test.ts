@@ -11,8 +11,8 @@ const entry = {
 
 const profile: FeeProfile = {
   version: 1,
-  network: "testnet_bradbury",
-  chainId: 4221,
+  network: "studio-dev",
+  chainId: 61997,
   measuredAt: "2026-09-10T00:00:00Z",
   headroom: 1.25,
   deploy: entry,
@@ -25,6 +25,12 @@ describe("v0.6 fee profile loading", () => {
   it("loads the checked-in profile without inventing allocations", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(profile), { status: 200 })));
     await expect(loadFeeProfile()).resolves.toEqual(profile);
+  });
+
+  it("accepts a finalized localnet measurement profile for Studio-dev fee quoting", async () => {
+    const localMeasurement = { ...profile, network: "localnet", chainId: 61999 };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(localMeasurement), { status: 200 })));
+    await expect(loadFeeProfile()).resolves.toEqual(localMeasurement);
   });
 
   it("selects the exact write method entry", () => {

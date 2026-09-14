@@ -23,8 +23,8 @@ export function toneForState(state: ListingState): StateTone {
 }
 
 export function stateExplanation(state: ListingState): string {
-  if (state === "UNASSESSED") return "No consensus assessment exists yet.";
-  if (state === "CLEARED") return "Cleared by consensus against the recorded assessments and registered facts.";
+  if (state === "UNASSESSED") return "No consensus assessment exists yet; this record is not described as safe or cleared.";
+  if (state === "CLEARED") return "Cleared by consensus against the recorded assessments and registered facts; this is not a universal product safety certification.";
   if (state === "REVIEW_REQUIRED") return "An admissible but inconclusive assessment remains relevant.";
   return "An affected assessment remains relevant; a later favorable result cannot unblock this record.";
 }
