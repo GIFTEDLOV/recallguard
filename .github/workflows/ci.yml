@@ -53,7 +53,7 @@ jobs:
           grep -Fq '0x6E2EAfF16124c513022Ad85751fD4dfF8d7e5580' PROVENANCE.md
           grep -Fq '61997' PROVENANCE.md
           grep -Fq 'v2-stable-marketplace-reference' contracts/recall_guard.py
-          grep -Fq 'v2-cpsc-recall-number' contracts/recall_guard.py
+          grep -Fq 'NOTICE_IDENTITY_VERSION = "v2-cpsc-recall-number"' contracts/recall_guard.py
           grep -Fq 'STATE_UNASSESSED' contracts/recall_guard.py
           grep -Fq 'STATE_CLEARED' contracts/recall_guard.py
           grep -Fq 'STATE_REVIEW_REQUIRED' contracts/recall_guard.py
